@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ACME Credential Issuer</title>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-container">
+      <aside class="sidebar">
+        <div class="sidebar-header">
+          <img src="logo.svg" alt="ACME Logo" class="logo" />
+          <h1>ACME Issuer</h1>
+        </div>
+        <nav class="main-nav">
+          <ul>
+            <li>
+              <a href="#" id="homeBtn" class="nav-item active"
+                ><i class="fas fa-home"></i> Dashboard</a
+              >
+            </li>
+            <li>
+              <a href="#" id="templatesBtn" class="nav-item"
+                ><i class="fas fa-file-alt"></i> Templates</a
+              >
+            </li>
+            <li>
+              <a href="#" id="issueBtn" class="nav-item"
+                ><i class="fas fa-certificate"></i> Issue Credentials</a
+              >
+            </li>
+          </ul>
+        </nav>
+        <div class="sidebar-footer">
+          <a href="#" class="settings-link"
+            ><i class="fas fa-cog"></i> Settings</a
+          >
+        </div>
+      </aside>
+
+      <main class="main-content">
+        <header class="content-header">
+          <div class="page-title">
+            <h2 id="currentPageTitle">Dashboard</h2>
+          </div>
+          <div class="user-menu">
+            <button class="user-menu-btn">
+              <span class="user-avatar">AC</span>
+              <span class="user-name">Admin</span>
+            </button>
+          </div>
+        </header>
+
+        <div class="content-container">
+          <section id="home" class="page active">
+            <div class="welcome-banner">
+              <h3>Welcome to the ACME Credential Issuer Portal</h3>
+              <p>
+                Manage and issue verifiable credentials quickly and securely.
+              </p>
+            </div>
+
+            <div class="stats-container">
+              <div class="stat-card">
+                <div class="stat-icon"><i class="fas fa-file-alt"></i></div>
+                <div class="stat-info">
+                  <h4>Total Templates</h4>
+                  <p id="templateCount">0</p>
+                </div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-icon"><i class="fas fa-certificate"></i></div>
+                <div class="stat-info">
+                  <h4>Credentials Issued</h4>
+                  <p id="credentialCount">0</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="quick-actions">
+              <h3>Quick Actions</h3>
+              <div class="action-cards">
+                <div class="action-card" data-action="templates">
+                  <div class="card-icon"><i class="fas fa-file-alt"></i></div>
+                  <div class="card-content">
+                    <h4>Manage Templates</h4>
+                    <p>Create and edit credential templates</p>
+                  </div>
+                </div>
+                <div class="action-card" data-action="issue">
+                  <div class="card-icon">
+                    <i class="fas fa-certificate"></i>
+                  </div>
+                  <div class="card-content">
+                    <h4>Issue Credentials</h4>
+                    <p>Create and issue new credentials</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section id="templates" class="page">
+            <div class="page-actions">
+              <button id="newTemplateBtn" class="btn primary-btn">
+                <i class="fas fa-plus"></i> New Template
+              </button>
+            </div>
+
+            <div class="search-container">
+              <div class="search-input">
+                <i class="fas fa-search"></i>
+                <input
+                  type="text"
+                  id="templateSearch"
+                  placeholder="Search templates..."
+                />
+              </div>
+            </div>
+
+            <div id="templatesList" class="templates-grid">
+              <div class="loading-indicator">
+                <div class="spinner"></div>
+                <p>Loading templates...</p>
+              </div>
+            </div>
+          </section>
+
+          <section id="templateEditor" class="page">
+            <div class="breadcrumb">
+              <a href="#" id="backToTemplates">Templates</a> /
+              <span id="editorBreadcrumb">New Template</span>
+            </div>
+
+            <form id="templateForm" class="card-form">
+              <div class="form-section">
+                <h3>Basic Information</h3>
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="templateName">Name</label>
+                    <input type="text" id="templateName" required />
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label for="templateDescription">Description</label>
+                  <textarea id="templateDescription" rows="3"></textarea>
+                </div>
+              </div>
+
+              <div class="form-section">
+                <div class="section-header">
+                  <h3>Template Fields</h3>
+                  <button
+                    type="button"
+                    id="addFieldBtn"
+                    class="btn secondary-btn"
+                  >
+                    <i class="fas fa-plus"></i> Add Field
+                  </button>
+                </div>
+                <div id="fieldsContainer" class="fields-container"></div>
+              </div>
+
+              <div class="form-actions">
+                <button
+                  type="button"
+                  id="cancelTemplateBtn"
+                  class="btn secondary-btn"
+                >
+                  Cancel
+                </button>
+                <button type="submit" class="btn primary-btn">
+                  <i class="fas fa-save"></i> Save Template
+                </button>
+              </div>
+            </form>
+          </section>
+
+          <section id="issueCredential" class="page">
+            <div class="issuance-stepper">
+              <div class="step active" data-step="select">
+                <div class="step-number">1</div>
+                <div class="step-label">Select Template</div>
+              </div>
+              <div class="step-connector"></div>
+              <div class="step" data-step="fill">
+                <div class="step-number">2</div>
+                <div class="step-label">Fill Details</div>
+              </div>
+              <div class="step-connector"></div>
+              <div class="step" data-step="issue">
+                <div class="step-number">3</div>
+                <div class="step-label">Issue Credential</div>
+              </div>
+            </div>
+            <div id="selectTemplateStep" class="issuance-step active">
+              <div class="template-selector">
+                <h3>Choose a Credential Template</h3>
+                <div class="search-container">
+                  <div class="search-input">
+                    <i class="fas fa-search"></i>
+                    <input
+                      type="text"
+                      id="issueTemplateSearch"
+                      placeholder="Search templates..."
+                    />
+                  </div>
+                </div>
+                <div id="issueTemplateGrid" class="templates-grid compact">
+                  <!-- Templates will be loaded here -->
+                </div>
+              </div>
+
+              <div class="form-actions">
+                <button
+                  id="continueToDetailsBtn"
+                  class="btn primary-btn"
+                  disabled
+                >
+                  Continue
+                </button>
+              </div>
+            </div>
+
+            <div id="credentialForm" class="issuance-step">
+              <div class="template-info">
+                <h3 id="selectedTemplateName"></h3>
+                <p id="selectedTemplateDescription"></p>
+              </div>
+
+              <form id="issueForm" class="card-form">
+                <div class="form-section">
+                  <h3>Credential Details</h3>
+                  <div id="templateFieldsContainer"></div>
+                </div>
+
+                <div class="form-actions">
+                  <button
+                    type="button"
+                    id="backToSelectBtn"
+                    class="btn secondary-btn"
+                  >
+                    Back
+                  </button>
+                  <button type="submit" class="btn primary-btn">
+                    Issue Credential
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            <div id="credentialResult" class="issuance-step">
+              <div class="success-animation">
+                <i class="fas fa-check-circle"></i>
+              </div>
+              <h3>Credential Issued Successfully!</h3>
+
+              <div class="qr-container">
+                <div id="qrCode"></div>
+              </div>
+
+              <p class="help-text">
+                Scan the QR code with a compatible wallet to receive your
+                credential
+              </p>
+
+              <div class="url-container">
+                <h4>Credential Offer URL</h4>
+                <div class="copy-url">
+                  <input type="text" id="credentialOfferUrl" readonly />
+                  <button id="copyUrlBtn" class="btn icon-btn">
+                    <i class="fas fa-copy"></i>
+                  </button>
+                </div>
+              </div>
+
+              <div class="form-actions centered">
+                <button id="issueNewBtn" class="btn primary-btn">
+                  Issue Another Credential
+                </button>
+              </div>
+            </div>
+          </section>
+        </div>
+      </main>
+    </div>
+
+    <!-- Templates for dynamic content -->
+    <template id="fieldTemplate">
+      <div class="field-item">
+        <div class="field-header">
+          <h4 class="field-title">Field</h4>
+          <button type="button" class="btn icon-btn remove-field">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+        <div class="field-body">
+          <div class="form-row">
+            <div class="form-group">
+              <label>Field Name</label>
+              <input type="text" class="field-name" required />
+            </div>
+            <div class="form-group">
+              <label>Field Type</label>
+              <select class="field-type">
+                <option value="string">Text</option>
+                <option value="number">Number</option>
+                <option value="date">Date</option>
+                <option value="boolean">Yes/No</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Description</label>
+            <input type="text" class="field-description" />
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <div class="checkbox-group">
+                <input
+                  type="checkbox"
+                  class="field-required"
+                  id="field-required-{id}"
+                />
+                <label for="field-required-{id}">Required</label>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>

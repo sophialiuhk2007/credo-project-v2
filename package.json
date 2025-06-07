@@ -1,0 +1,34 @@
+{
+  "name": "credo-project-v2",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build": "rm -rf dist && npx tsc && mkdir -p dist/public && cp -r public/* dist/public/ 2>/dev/null || : && mkdir -p templates",
+    "start": "node dist/index.js",
+    "dev": "DEBUG=express:* ts-node src/index.ts",
+    "debug": "node --inspect dist/index.js",
+    "watch": "nodemon --exec ts-node src/index.ts",
+    "clean": "rm -rf node_modules && rm -rf dist",
+    "check-port": "npx check-port-cli 3000"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@credo-ts/askar": "^0.5.15",
+    "@credo-ts/core": "^0.5.15",
+    "@credo-ts/node": "^0.5.15",
+    "@credo-ts/openid4vc": "^0.5.15",
+    "@credo-ts/react-native": "^0.5.15",
+    "@hyperledger/aries-askar-nodejs": "^0.2.3",
+    "express": "^5.1.0",
+    "react-native-fs": "^2.20.0",
+    "react-native-get-random-values": "^1.11.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.2",
+    "@types/node": "^22.15.29",
+    "typescript": "^5.8.3"
+  }
+}

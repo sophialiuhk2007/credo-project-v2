@@ -1,0 +1,14 @@
+{
+  "id": "AcmeFamilyCertificate",
+  "name": "Acme Family Certificate",
+  "description": "To certify being a part of acme family",
+  "vct": "AcmeFamilyCertificate",
+  "fields": [
+    {
+      "name": "familyName",
+      "type": "string",
+      "description": "Family Name",
+      "required": true
+    }
+  ]
+}

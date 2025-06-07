@@ -1,0 +1,14 @@
+{
+  "id": "AcmeEmployeeCertificate",
+  "name": "Acme Employee Certificate",
+  "description": "A certificate to certify a person is acme employee",
+  "vct": "AcmeEmployeeCertificate",
+  "fields": [
+    {
+      "name": "firstName",
+      "type": "string",
+      "description": "First Name",
+      "required": true
+    }
+  ]
+}
