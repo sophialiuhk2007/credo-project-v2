@@ -43,7 +43,7 @@ app.post("/api/templates", async (req, res) => {
         return Promise.resolve(res.status(500).json({ error: "Failed to save template" }));
     }
     // Refresh issuer's supported credentials
-    // await initializeIssuer();
+    await (0, issuer_main_1.initializeIssuer)();
     return Promise.resolve(res.status(201).json(template));
 });
 app.delete("/api/templates/:id", (req, res) => {
@@ -57,16 +57,17 @@ app.delete("/api/templates/:id", (req, res) => {
 });
 // API endpoint to issue credential based on template
 app.post("/api/issue", async (req, res) => {
-    console.log("Received issue request:", req.body); // <--- Add this
+    console.log("Received issue request:", req.body);
     try {
         const { templateId, data } = req.body;
         const template = (0, template_manager_1.getTemplateById)(templateId);
         if (!template) {
             return res.status(404).json({ error: "Template not found" });
         }
-        // Pass templateId to issueCredentialOffer
-        const { credentialOffer, issuanceSession } = await (0, issuer_main_1.issueCredentialOffer)(data, templateId);
-        console.log("credentialOffer:", credentialOffer); // <-- Add this line
+        // Pass both data and template to issueCredentialOffer
+        const { credentialOffer, issuanceSession } = await (0, issuer_main_1.issueCredentialOffer)(data, templateId, template // Pass the full template
+        );
+        console.log("credentialOffer:", credentialOffer);
         return res.json({
             success: true,
             message: "Credential issued successfully",
@@ -76,7 +77,9 @@ app.post("/api/issue", async (req, res) => {
     }
     catch (error) {
         console.error("Error issuing credential:", error);
-        return res.status(500).json({ error: "Failed to issue credential" });
+        if (!res.headersSent) {
+            return res.status(500).json({ error: "Failed to issue credential" });
+        }
     }
 });
 app.put("/api/templates/:id", async (req, res) => {
@@ -89,7 +92,7 @@ app.put("/api/templates/:id", async (req, res) => {
         return Promise.resolve(res.status(404).json({ error: "Failed to update template" }));
     }
     // Refresh issuer's supported credentials
-    // await initializeIssuer();
+    await (0, issuer_main_1.initializeIssuer)();
     return Promise.resolve(res.json(template));
 });
 // Start the server with dynamic port assignment

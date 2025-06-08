@@ -20,9 +20,17 @@ export interface CredentialField {
 export interface CredentialTemplate {
   id: string;
   name: string;
-  description: string;
+  description?: string;
   vct: string;
-  fields: CredentialField[];
+  fields: TemplateField[];
+}
+
+export interface TemplateField {
+  name: string;
+  type: "text" | "number" | "email" | "date";
+  required: boolean;
+  description?: string;
+  selectivelyDisclosable: boolean; // New property
 }
 
 // Get all templates

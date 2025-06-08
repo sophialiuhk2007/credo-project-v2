@@ -14,57 +14,60 @@ const credentialRequestToCredentialMapper: OpenId4VciCredentialRequestToCredenti
     holderBinding,
     issuanceSession,
   }) => {
-    console.log("Mapper session id:", issuanceSession?.id);
-    console.log(
-      "Full issuanceSession.metadata:",
-      JSON.stringify(issuanceSession?.metadata, null, 2)
-    );
-    console.log(
-      "sessionDataMap has session?",
-      sessionDataMap.has(issuanceSession?.id || "")
-    );
-    console.log(
-      "sessionDataMap contents:",
-      Array.from(sessionDataMap.entries())
-    );
-
     const firstSupported = credentialsSupported[0];
 
     if (!firstSupported || !firstSupported.id) {
       throw new Error("No supported credential or credentialSupportedId found");
     }
 
-    // Only support vc+sd-jwt
     if (firstSupported.format !== OpenId4VciCredentialFormatProfile.SdJwtVc) {
       throw new Error("Only vc+sd-jwt is supported");
     }
 
-    // --- Extract user-inputted fields from issuanceSession.metadata or credentialRequest.claims ---
     let payloadFields: Record<string, any> = {};
-    console.log("Mapper received data:", issuanceSession?.metadata?.data);
+    let template: any = null;
 
-    // Check if metadata.data exists and has content
+    // Get session data and template
     if (
       issuanceSession?.metadata?.data &&
       Object.keys(issuanceSession.metadata.data).length > 0
     ) {
       payloadFields = { ...issuanceSession.metadata.data };
-      console.log("Using issuanceSession.metadata.data");
-    }
-    // Workaround: look up data by session ID if missing
-    else if (issuanceSession?.id && sessionDataMap.has(issuanceSession.id)) {
-      payloadFields = { ...sessionDataMap.get(issuanceSession.id) };
-      console.log("Mapper loaded data from sessionDataMap:", payloadFields);
+    } else if (issuanceSession?.id && sessionDataMap.has(issuanceSession.id)) {
+      const sessionData = sessionDataMap.get(issuanceSession.id);
+      payloadFields = { ...sessionData.data };
+      template = sessionData.template;
+      console.log("Loaded session data and template:", {
+        payloadFields,
+        template,
+      });
 
-      // Clean up the stored data after use
       sessionDataMap.delete(issuanceSession.id);
-    } else {
-      console.log("No data found in either location!");
     }
 
     // Always include vct
     payloadFields.vct = firstSupported.vct;
-    console.log("Final payloadFields:", payloadFields);
+
+    // Determine which fields should be selectively disclosable based on template
+    let selectivelyDisclosableFields: string[] = [];
+
+    if (template && template.fields) {
+      selectivelyDisclosableFields = template.fields
+        .filter(
+          (field: any) => field.selectivelyDisclosable && field.name !== "vct"
+        )
+        .map((field: any) => field.name);
+
+      console.log(
+        "Selectively disclosable fields:",
+        selectivelyDisclosableFields
+      );
+    } else {
+      // Fallback: make all fields except vct selectively disclosable
+      selectivelyDisclosableFields = Object.keys(payloadFields).filter(
+        (k) => k !== "vct"
+      );
+    }
 
     // Find the first did:key DID in the wallet
     const didsApi = agentContext.dependencyManager.resolve(DidsApi);
@@ -81,7 +84,7 @@ const credentialRequestToCredentialMapper: OpenId4VciCredentialRequestToCredenti
       holder: holderBinding,
       payload: payloadFields,
       disclosureFrame: {
-        _sd: Object.keys(payloadFields).filter((k) => k !== "vct"),
+        _sd: selectivelyDisclosableFields, // Use template-defined selective disclosure
       },
       issuer: {
         method: "did",
@@ -89,5 +92,4 @@ const credentialRequestToCredentialMapper: OpenId4VciCredentialRequestToCredenti
       },
     };
   };
-
 export default credentialRequestToCredentialMapper;

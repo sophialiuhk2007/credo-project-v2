@@ -2,7 +2,6 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.sessionDataMap = exports.issueCredentialOffer = exports.initializeIssuer = void 0;
 const core_1 = require("@credo-ts/core");
-const openid4vc_1 = require("@credo-ts/openid4vc");
 const issuer_config_1 = require("./issuer_config");
 const template_manager_1 = require("./template_manager");
 // Hold initialized agent and issuer globally
@@ -53,7 +52,8 @@ const initializeIssuer = async () => {
 };
 exports.initializeIssuer = initializeIssuer;
 // Only called when issuing a credential
-const issueCredentialOffer = async (data, templateId) => {
+// Update the session data map to include template info
+const issueCredentialOffer = async (data, templateId, template) => {
     console.log("Passing issuanceMetadata.data:", data);
     if (!acmeAgent || !openid4vcIssuer) {
         throw new Error("Issuer not initialized");
@@ -69,17 +69,12 @@ const issueCredentialOffer = async (data, templateId) => {
         },
     });
     console.log("Offer session id:", issuanceSession.id);
-    // Workaround: Store data by session ID
+    // Store both data and template metadata
     if (data && issuanceSession.id) {
-        sessionDataMap.set(issuanceSession.id, data);
-        console.log("Stored data in sessionDataMap for session:", issuanceSession.id);
+        sessionDataMap.set(issuanceSession.id, { data, template });
+        console.log("Stored data and template in sessionDataMap for session:", issuanceSession.id);
     }
-    // Listen for session events
-    acmeAgent.events.on(openid4vc_1.OpenId4VcIssuerEvents.IssuanceSessionStateChanged, (event) => {
-        if (event.payload.issuanceSession.id === issuanceSession.id) {
-            console.log("Issuance session state changed to ", event.payload.issuanceSession.state);
-        }
-    });
+    // ... rest of function
     return { credentialOffer, issuanceSession };
 };
 exports.issueCredentialOffer = issueCredentialOffer;

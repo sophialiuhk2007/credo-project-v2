@@ -434,10 +434,21 @@ const UI = {
     const fieldNode = document.importNode(fieldTemplate.content, true);
 
     // Update the id and for attributes for the checkbox and label
-    const checkbox = fieldNode.querySelector(".field-required");
-    const label = fieldNode.querySelector('label[for^="field-required-"]');
-    if (checkbox) checkbox.id = `field-required-${fieldId}`;
-    if (label) label.setAttribute("for", `field-required-${fieldId}`);
+    const requiredCheckbox = fieldNode.querySelector(".field-required");
+    const requiredLabel = fieldNode.querySelector(
+      'label[for^="field-required-"]'
+    );
+    const selectiveCheckbox = fieldNode.querySelector(".field-selective");
+    const selectiveLabel = fieldNode.querySelector(
+      'label[for^="field-selective-"]'
+    );
+
+    if (requiredCheckbox) requiredCheckbox.id = `field-required-${fieldId}`;
+    if (requiredLabel)
+      requiredLabel.setAttribute("for", `field-required-${fieldId}`);
+    if (selectiveCheckbox) selectiveCheckbox.id = `field-selective-${fieldId}`;
+    if (selectiveLabel)
+      selectiveLabel.setAttribute("for", `field-selective-${fieldId}`);
 
     // If editing an existing field, fill in the values
     if (fieldData) {
@@ -448,10 +459,12 @@ const UI = {
         fieldData.description || "";
       fieldElement.querySelector(".field-required").checked =
         fieldData.required || false;
+      fieldElement.querySelector(".field-selective").checked =
+        fieldData.selectivelyDisclosable || false;
       fieldElement.querySelector(".field-title").textContent = fieldData.name;
     }
 
-    // Add remove event listener
+    // Add remove event listener for the X button
     fieldNode
       .querySelector(".remove-field")
       .addEventListener("click", function () {
@@ -475,12 +488,10 @@ const UI = {
     try {
       const nameInput = document.getElementById("templateName");
       const rawName = nameInput.value.trim();
-      const name = toTitleCase(rawName); // Standard punctuation
+      const name = toTitleCase(rawName);
 
-      // Generate id and vct from name
       const camelName = toCamelCaseWithCap(name);
 
-      // Prevent duplicate IDs on creation
       if (!AppState.currentTemplate) {
         const exists = AppState.templates.some((t) => t.id === camelName);
         if (exists) {
@@ -503,11 +514,22 @@ const UI = {
       // Gather fields data
       const fieldElements = DOM.fieldsContainer.querySelectorAll(".field-item");
       fieldElements.forEach((fieldEl) => {
+        const originalName = fieldEl.querySelector(".field-name").value;
+        const camelName = originalName
+          .replace(/(?:^\w|[A-Z]|\b\w)/g, (word, index) =>
+            index === 0 ? word.toLowerCase() : word.toUpperCase()
+          )
+          .replace(/\s+/g, "")
+          .replace(/[^a-zA-Z0-9]/g, "");
+
         templateData.fields.push({
-          name: fieldEl.querySelector(".field-name").value,
+          name: camelName,
+          label: originalName, // Store the original for display
           type: fieldEl.querySelector(".field-type").value,
           description: fieldEl.querySelector(".field-description").value,
           required: fieldEl.querySelector(".field-required").checked,
+          selectivelyDisclosable:
+            fieldEl.querySelector(".field-selective").checked,
         });
       });
 
@@ -517,7 +539,7 @@ const UI = {
 
       alert(`Template "${savedTemplate.name}" saved successfully!`);
       await this.renderTemplatesList();
-      await this.renderIssueTemplateGrid(); // <-- Add this line
+      await this.renderIssueTemplateGrid();
       this.navigateTo("templates");
     } catch (error) {
       console.error("Error saving template:", error);
@@ -581,14 +603,20 @@ const UI = {
 
         const label = document.createElement("label");
         label.setAttribute("for", `field_${field.name}`);
-        label.textContent = field.name;
+        label.textContent = field.label
+          ? toTitleCase(field.label)
+          : toTitleCase(field.name); // Always use title case
         if (field.required) {
           const requiredSpan = document.createElement("span");
           requiredSpan.className = "required";
           requiredSpan.textContent = " *";
           label.appendChild(requiredSpan);
+        } else {
+          const optionalSpan = document.createElement("span");
+          optionalSpan.className = "optional";
+          optionalSpan.textContent = " (optional)";
+          label.appendChild(optionalSpan);
         }
-
         let input;
         switch (field.type) {
           case "boolean":
@@ -638,7 +666,9 @@ const UI = {
             input.type = "text";
             input.id = `field_${field.name}`;
             input.name = field.name;
-            if (field.required) input.required = true;
+            if (field.required) {
+              input.required = true;
+            }
 
             fieldGroup.appendChild(label);
             fieldGroup.appendChild(input);

@@ -4,40 +4,44 @@ const openid4vc_1 = require("@credo-ts/openid4vc");
 const core_1 = require("@credo-ts/core");
 const issuer_main_1 = require("./issuer_main");
 const credentialRequestToCredentialMapper = async ({ agentContext, credentialOffer, credentialRequest, credentialsSupported, holderBinding, issuanceSession, }) => {
-    console.log("Mapper session id:", issuanceSession?.id);
-    console.log("Full issuanceSession.metadata:", JSON.stringify(issuanceSession?.metadata, null, 2));
-    console.log("sessionDataMap has session?", issuer_main_1.sessionDataMap.has(issuanceSession?.id || ""));
-    console.log("sessionDataMap contents:", Array.from(issuer_main_1.sessionDataMap.entries()));
     const firstSupported = credentialsSupported[0];
     if (!firstSupported || !firstSupported.id) {
         throw new Error("No supported credential or credentialSupportedId found");
     }
-    // Only support vc+sd-jwt
     if (firstSupported.format !== openid4vc_1.OpenId4VciCredentialFormatProfile.SdJwtVc) {
         throw new Error("Only vc+sd-jwt is supported");
     }
-    // --- Extract user-inputted fields from issuanceSession.metadata or credentialRequest.claims ---
     let payloadFields = {};
-    console.log("Mapper received data:", issuanceSession?.metadata?.data);
-    // Check if metadata.data exists and has content
+    let template = null;
+    // Get session data and template
     if (issuanceSession?.metadata?.data &&
         Object.keys(issuanceSession.metadata.data).length > 0) {
         payloadFields = { ...issuanceSession.metadata.data };
-        console.log("Using issuanceSession.metadata.data");
     }
-    // Workaround: look up data by session ID if missing
     else if (issuanceSession?.id && issuer_main_1.sessionDataMap.has(issuanceSession.id)) {
-        payloadFields = { ...issuer_main_1.sessionDataMap.get(issuanceSession.id) };
-        console.log("Mapper loaded data from sessionDataMap:", payloadFields);
-        // Clean up the stored data after use
+        const sessionData = issuer_main_1.sessionDataMap.get(issuanceSession.id);
+        payloadFields = { ...sessionData.data };
+        template = sessionData.template;
+        console.log("Loaded session data and template:", {
+            payloadFields,
+            template,
+        });
         issuer_main_1.sessionDataMap.delete(issuanceSession.id);
-    }
-    else {
-        console.log("No data found in either location!");
     }
     // Always include vct
     payloadFields.vct = firstSupported.vct;
-    console.log("Final payloadFields:", payloadFields);
+    // Determine which fields should be selectively disclosable based on template
+    let selectivelyDisclosableFields = [];
+    if (template && template.fields) {
+        selectivelyDisclosableFields = template.fields
+            .filter((field) => field.selectivelyDisclosable && field.name !== "vct")
+            .map((field) => field.name);
+        console.log("Selectively disclosable fields:", selectivelyDisclosableFields);
+    }
+    else {
+        // Fallback: make all fields except vct selectively disclosable
+        selectivelyDisclosableFields = Object.keys(payloadFields).filter((k) => k !== "vct");
+    }
     // Find the first did:key DID in the wallet
     const didsApi = agentContext.dependencyManager.resolve(core_1.DidsApi);
     const [didKeyDidRecord] = await didsApi.getCreatedDids({
@@ -51,7 +55,7 @@ const credentialRequestToCredentialMapper = async ({ agentContext, credentialOff
         holder: holderBinding,
         payload: payloadFields,
         disclosureFrame: {
-            _sd: Object.keys(payloadFields).filter((k) => k !== "vct"),
+            _sd: selectivelyDisclosableFields, // Use template-defined selective disclosure
         },
         issuer: {
             method: "did",

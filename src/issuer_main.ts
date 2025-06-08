@@ -61,9 +61,12 @@ export const initializeIssuer = async () => {
 };
 
 // Only called when issuing a credential
+// Update the session data map to include template info
+
 export const issueCredentialOffer = async (
   data?: Record<string, any>,
-  templateId?: string
+  templateId?: string,
+  template?: any
 ) => {
   console.log("Passing issuanceMetadata.data:", data);
   if (!acmeAgent || !openid4vcIssuer) {
@@ -84,29 +87,17 @@ export const issueCredentialOffer = async (
 
   console.log("Offer session id:", issuanceSession.id);
 
-  // Workaround: Store data by session ID
+  // Store both data and template metadata
   if (data && issuanceSession.id) {
-    sessionDataMap.set(issuanceSession.id, data);
+    sessionDataMap.set(issuanceSession.id, { data, template });
     console.log(
-      "Stored data in sessionDataMap for session:",
+      "Stored data and template in sessionDataMap for session:",
       issuanceSession.id
     );
   }
 
-  // Listen for session events
-  acmeAgent.events.on(
-    OpenId4VcIssuerEvents.IssuanceSessionStateChanged,
-    (event: OpenId4VcIssuanceSessionStateChangedEvent) => {
-      if (event.payload.issuanceSession.id === issuanceSession.id) {
-        console.log(
-          "Issuance session state changed to ",
-          event.payload.issuanceSession.state
-        );
-      }
-    }
-  );
+  // ... rest of function
 
   return { credentialOffer, issuanceSession };
 };
-
 export { sessionDataMap };

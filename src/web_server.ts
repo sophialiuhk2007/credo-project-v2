@@ -62,7 +62,7 @@ app.post(
     }
 
     // Refresh issuer's supported credentials
-    // await initializeIssuer();
+    await initializeIssuer();
 
     return Promise.resolve(res.status(201).json(template));
   }
@@ -86,7 +86,7 @@ app.delete(
 
 // API endpoint to issue credential based on template
 app.post("/api/issue", async (req: Request, res: Response): Promise<any> => {
-  console.log("Received issue request:", req.body); // <--- Add this
+  console.log("Received issue request:", req.body);
   try {
     const { templateId, data } = req.body;
     const template = getTemplateById(templateId);
@@ -94,12 +94,13 @@ app.post("/api/issue", async (req: Request, res: Response): Promise<any> => {
       return res.status(404).json({ error: "Template not found" });
     }
 
-    // Pass templateId to issueCredentialOffer
+    // Pass both data and template to issueCredentialOffer
     const { credentialOffer, issuanceSession } = await issueCredentialOffer(
       data,
-      templateId
+      templateId,
+      template // Pass the full template
     );
-    console.log("credentialOffer:", credentialOffer); // <-- Add this line
+    console.log("credentialOffer:", credentialOffer);
 
     return res.json({
       success: true,
@@ -109,7 +110,9 @@ app.post("/api/issue", async (req: Request, res: Response): Promise<any> => {
     });
   } catch (error) {
     console.error("Error issuing credential:", error);
-    return res.status(500).json({ error: "Failed to issue credential" });
+    if (!res.headersSent) {
+      return res.status(500).json({ error: "Failed to issue credential" });
+    }
   }
 });
 
@@ -130,7 +133,7 @@ app.put(
     }
 
     // Refresh issuer's supported credentials
-    // await initializeIssuer();
+    await initializeIssuer();
 
     return Promise.resolve(res.json(template));
   }

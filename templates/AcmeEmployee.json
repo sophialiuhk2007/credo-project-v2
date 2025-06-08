@@ -1,0 +1,16 @@
+{
+  "id": "AcmeEmployee",
+  "name": "Acme Employee",
+  "description": "Certificate for acme employee",
+  "vct": "AcmeEmployee",
+  "fields": [
+    {
+      "name": "firstName",
+      "label": "first name",
+      "type": "text",
+      "description": "",
+      "required": true,
+      "selectivelyDisclosable": true
+    }
+  ]
+}

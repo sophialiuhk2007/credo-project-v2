@@ -147,8 +147,10 @@
                   </div>
                 </div>
                 <div class="form-group">
-                  <label for="templateDescription">Description</label>
-                  <textarea id="templateDescription" rows="3"></textarea>
+                  <label for="templateDescription"
+                    >Description <span class="required">*</span></label
+                  >
+                  <input type="text" id="templateDescription" required />
                 </div>
               </div>
 
@@ -293,10 +295,27 @@
     <!-- Templates for dynamic content -->
     <template id="fieldTemplate">
       <div class="field-item">
-        <div class="field-header">
+        <div
+          class="field-header"
+          style="
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+          "
+        >
           <h4 class="field-title">Field</h4>
-          <button type="button" class="btn icon-btn remove-field">
-            <i class="fas fa-times"></i>
+          <button
+            type="button"
+            class="remove-field"
+            title="Remove field"
+            style="
+              background: none;
+              border: none;
+              font-size: 1.2em;
+              cursor: pointer;
+            "
+          >
+            &times;
           </button>
         </div>
         <div class="field-body">
@@ -305,31 +324,31 @@
               <label>Field Name</label>
               <input type="text" class="field-name" required />
             </div>
-            <!-- In your public/index.html template editor section -->
             <div class="form-group">
               <label>Field Type</label>
               <select class="field-type">
-                <option value="string">Text</option>
+                <option value="text">Text</option>
                 <option value="number">Number</option>
+                <option value="email">Email</option>
                 <option value="date">Date</option>
-                <option value="boolean">Yes/No</option>
               </select>
             </div>
           </div>
           <div class="form-group">
-            <label>Description</label>
+            <label>Description <span class="optional">(optional)</span></label>
             <input type="text" class="field-description" />
           </div>
           <div class="form-row">
             <div class="form-group">
-              <div class="checkbox-group">
-                <input
-                  type="checkbox"
-                  class="field-required"
-                  id="field-required-{id}"
-                />
-                <label for="field-required-{id}">Required</label>
-              </div>
+              <label>
+                <input type="checkbox" class="field-required" /> Required
+              </label>
+            </div>
+            <div class="form-group">
+              <label>
+                <input type="checkbox" class="field-selective" /> Selectively
+                Disclosable
+              </label>
             </div>
           </div>
         </div>
