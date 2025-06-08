@@ -1,16 +1,33 @@
-import {
-  JwaSignatureAlgorithm,
-  KeyDidCreateOptions,
-  KeyType,
-} from "@credo-ts/core";
+import { JwaSignatureAlgorithm, KeyType } from "@credo-ts/core";
 import {
   OpenId4VcIssuerEvents,
   OpenId4VcIssuanceSessionStateChangedEvent,
 } from "@credo-ts/openid4vc";
-import { initializeAcmeAgentIssuer, app } from "./issuer_config";
+import { initializeAcmeAgentIssuer, issuerRouter } from "./issuer_config";
+import { getAllTemplates } from "./template_manager";
 
-const createOpenId4VcIssuer = async (acmeAgent: any) => {
-  return await acmeAgent.modules.openId4VcIssuer.createIssuer({
+// Hold initialized agent and issuer globally
+let acmeAgent: any = null;
+let openid4vcIssuer: any = null;
+
+// Workaround: Store session data separately
+const sessionDataMap = new Map<string, any>();
+
+// Initialize agent, issuer, and DID on server startup
+export const initializeIssuer = async () => {
+  console.log("Initializing issuer...");
+  acmeAgent = await initializeAcmeAgentIssuer();
+
+  const templates = getAllTemplates();
+  const credentialsSupported = templates.map((template) => ({
+    format: "vc+sd-jwt",
+    vct: template.vct,
+    id: template.id,
+    cryptographic_binding_methods_supported: ["did:key"],
+    cryptographic_suites_supported: [JwaSignatureAlgorithm.ES256],
+  }));
+
+  openid4vcIssuer = await acmeAgent.modules.openId4VcIssuer.createIssuer({
     display: [
       {
         name: "ACME Corp.",
@@ -23,19 +40,9 @@ const createOpenId4VcIssuer = async (acmeAgent: any) => {
         },
       },
     ],
-    credentialsSupported: [
-      {
-        format: "vc+sd-jwt",
-        vct: "AcmeCorpEmployee",
-        id: "AcmeCorpEmployee",
-        cryptographic_binding_methods_supported: ["did:key"],
-        cryptographic_suites_supported: [JwaSignatureAlgorithm.ES256],
-      },
-    ],
+    credentialsSupported,
   });
-};
 
-const createIssuerDid = async (acmeAgent: any) => {
   const issuerDidResult = await acmeAgent.dids.create({
     method: "key",
     options: {
@@ -51,29 +58,42 @@ const createIssuerDid = async (acmeAgent: any) => {
       issuerDidResult.didState.did
     );
   }
-  return issuerDidResult;
 };
 
-const createCredentialOfferAndSession = async (
-  acmeAgent: any,
-  openid4vcIssuer: any
+// Only called when issuing a credential
+export const issueCredentialOffer = async (
+  data?: Record<string, any>,
+  templateId?: string
 ) => {
-  return await acmeAgent.modules.openId4VcIssuer.createCredentialOffer({
-    issuerId: openid4vcIssuer.issuerId,
-    offeredCredentials: ["AcmeCorpEmployee"],
-    preAuthorizedCodeFlowConfig: {
-      userPinRequired: false,
-    },
-    issuanceMetadata: {
-      someKey: "someValue",
-    },
-  });
-};
+  console.log("Passing issuanceMetadata.data:", data);
+  if (!acmeAgent || !openid4vcIssuer) {
+    throw new Error("Issuer not initialized");
+  }
 
-const listenForIssuanceSessionEvents = (
-  acmeAgent: any,
-  issuanceSession: any
-) => {
+  const { credentialOffer, issuanceSession } =
+    await acmeAgent.modules.openId4VcIssuer.createCredentialOffer({
+      issuerId: openid4vcIssuer.issuerId,
+      offeredCredentials: [templateId],
+      preAuthorizedCodeFlowConfig: {
+        userPinRequired: false,
+      },
+      issuanceMetadata: {
+        data,
+      },
+    });
+
+  console.log("Offer session id:", issuanceSession.id);
+
+  // Workaround: Store data by session ID
+  if (data && issuanceSession.id) {
+    sessionDataMap.set(issuanceSession.id, data);
+    console.log(
+      "Stored data in sessionDataMap for session:",
+      issuanceSession.id
+    );
+  }
+
+  // Listen for session events
   acmeAgent.events.on(
     OpenId4VcIssuerEvents.IssuanceSessionStateChanged,
     (event: OpenId4VcIssuanceSessionStateChangedEvent) => {
@@ -85,26 +105,8 @@ const listenForIssuanceSessionEvents = (
       }
     }
   );
+
+  return { credentialOffer, issuanceSession };
 };
 
-const run = async () => {
-  console.log("Initializing Acme agent...");
-  const acmeAgent = await initializeAcmeAgentIssuer();
-
-  const openid4vcIssuer = await createOpenId4VcIssuer(acmeAgent);
-  await createIssuerDid(acmeAgent);
-
-  const { credentialOffer, issuanceSession } =
-    await createCredentialOfferAndSession(acmeAgent, openid4vcIssuer);
-
-  console.log("Credential Offer created:", credentialOffer);
-  listenForIssuanceSessionEvents(acmeAgent, issuanceSession);
-
-  return void 0;
-};
-
-export default run;
-
-app.listen(3000);
-
-void run();
+export { sessionDataMap };

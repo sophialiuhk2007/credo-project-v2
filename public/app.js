@@ -111,7 +111,7 @@ const API = {
     try {
       // Check if this id exists in the current templates list
       const exists = AppState.templates.some((t) => t.id === template.id);
-      const method = "POST";
+      const method = exists ? "PUT" : "POST";
       const url = exists
         ? `${this.baseUrl}/templates/${template.id}`
         : `${this.baseUrl}/templates`;

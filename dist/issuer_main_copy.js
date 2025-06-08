@@ -2,7 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const core_1 = require("@credo-ts/core");
 const openid4vc_1 = require("@credo-ts/openid4vc");
-const issuer_config_1 = require("./issuer_config");
+const issuer_config_safe_1 = require("./issuer_config_safe");
 const createOpenId4VcIssuer = async (acmeAgent) => {
     return await acmeAgent.modules.openId4VcIssuer.createIssuer({
         display: [
@@ -64,7 +64,7 @@ const listenForIssuanceSessionEvents = (acmeAgent, issuanceSession) => {
 };
 const run = async () => {
     console.log("Initializing Acme agent...");
-    const acmeAgent = await (0, issuer_config_1.initializeAcmeAgentIssuer)();
+    const acmeAgent = await (0, issuer_config_safe_1.initializeAcmeAgentIssuer)();
     const openid4vcIssuer = await createOpenId4VcIssuer(acmeAgent);
     await createIssuerDid(acmeAgent);
     const { credentialOffer, issuanceSession } = await createCredentialOfferAndSession(acmeAgent, openid4vcIssuer);
@@ -73,5 +73,5 @@ const run = async () => {
     return void 0;
 };
 exports.default = run;
-issuer_config_1.app.listen(3000);
+issuer_config_safe_1.app.listen(3000);
 void run();

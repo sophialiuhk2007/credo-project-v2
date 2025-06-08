@@ -3,7 +3,6 @@ import {
   OpenId4VciCredentialRequestToCredentialMapper,
 } from "@credo-ts/openid4vc";
 import { DidsApi, DidKey } from "@credo-ts/core";
-import { sessionDataMap } from "./issuer_main";
 
 const credentialRequestToCredentialMapper: OpenId4VciCredentialRequestToCredentialMapper =
   async ({
@@ -15,19 +14,6 @@ const credentialRequestToCredentialMapper: OpenId4VciCredentialRequestToCredenti
     issuanceSession,
   }) => {
     console.log("Mapper session id:", issuanceSession?.id);
-    console.log(
-      "Full issuanceSession.metadata:",
-      JSON.stringify(issuanceSession?.metadata, null, 2)
-    );
-    console.log(
-      "sessionDataMap has session?",
-      sessionDataMap.has(issuanceSession?.id || "")
-    );
-    console.log(
-      "sessionDataMap contents:",
-      Array.from(sessionDataMap.entries())
-    );
-
     const firstSupported = credentialsSupported[0];
 
     if (!firstSupported || !firstSupported.id) {
@@ -42,29 +28,13 @@ const credentialRequestToCredentialMapper: OpenId4VciCredentialRequestToCredenti
     // --- Extract user-inputted fields from issuanceSession.metadata or credentialRequest.claims ---
     let payloadFields: Record<string, any> = {};
     console.log("Mapper received data:", issuanceSession?.metadata?.data);
-
-    // Check if metadata.data exists and has content
-    if (
-      issuanceSession?.metadata?.data &&
-      Object.keys(issuanceSession.metadata.data).length > 0
-    ) {
+    // Prefer issuanceSession.metadata.data (set in your backend when creating the offer)
+    if (issuanceSession?.metadata?.data) {
       payloadFields = { ...issuanceSession.metadata.data };
-      console.log("Using issuanceSession.metadata.data");
-    }
-    // Workaround: look up data by session ID if missing
-    else if (issuanceSession?.id && sessionDataMap.has(issuanceSession.id)) {
-      payloadFields = { ...sessionDataMap.get(issuanceSession.id) };
-      console.log("Mapper loaded data from sessionDataMap:", payloadFields);
-
-      // Clean up the stored data after use
-      sessionDataMap.delete(issuanceSession.id);
-    } else {
-      console.log("No data found in either location!");
     }
 
     // Always include vct
     payloadFields.vct = firstSupported.vct;
-    console.log("Final payloadFields:", payloadFields);
 
     // Find the first did:key DID in the wallet
     const didsApi = agentContext.dependencyManager.resolve(DidsApi);

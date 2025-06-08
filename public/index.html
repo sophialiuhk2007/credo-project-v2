@@ -305,6 +305,29 @@
               <label>Field Name</label>
               <input type="text" class="field-name" required />
             </div>
+            <!-- In your public/index.html template editor section -->
+            <div class="field-item">
+              <input
+                type="text"
+                class="field-name"
+                placeholder="Field name"
+                value=""
+              />
+              <select class="field-type">
+                <option value="text">Text</option>
+                <option value="number">Number</option>
+                <option value="email">Email</option>
+                <option value="date">Date</option>
+              </select>
+              <label>
+                <input type="checkbox" class="field-required" /> Required
+              </label>
+              <label>
+                <input type="checkbox" class="field-selective" /> Selectively
+                Disclosable
+              </label>
+              <button class="remove-field">Remove</button>
+            </div>
             <div class="form-group">
               <label>Field Type</label>
               <select class="field-type">

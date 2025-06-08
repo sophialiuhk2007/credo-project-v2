@@ -7,7 +7,7 @@ import {
   OpenId4VcIssuerEvents,
   OpenId4VcIssuanceSessionStateChangedEvent,
 } from "@credo-ts/openid4vc";
-import { initializeAcmeAgentIssuer, app } from "./issuer_config";
+import { initializeAcmeAgentIssuer, app } from "./issuer_config_safe";
 
 const createOpenId4VcIssuer = async (acmeAgent: any) => {
   return await acmeAgent.modules.openId4VcIssuer.createIssuer({

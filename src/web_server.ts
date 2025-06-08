@@ -8,9 +8,8 @@ import {
   deleteTemplate,
   CredentialTemplate,
 } from "./template_manager";
-import { initializeAcmeAgentIssuer } from "./issuer_config";
-import run from "./issuer_main";
-import http from "http";
+import { initializeIssuer, issueCredentialOffer } from "./issuer_main";
+import { issuerRouter } from "./issuer_config"; // <-- add this
 import { findAvailablePort } from "./utils/port-utils";
 
 // Create Express app
@@ -20,6 +19,7 @@ const app = express();
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "../public")));
 
+app.use("/oid4vci", issuerRouter); // <-- add this before your routes
 // Routes
 app.get("/", (req: Request, res: Response): Promise<any> => {
   return Promise.resolve(
@@ -43,24 +43,30 @@ app.get("/api/templates/:id", (req: Request, res: Response): Promise<any> => {
   return Promise.resolve(res.json(template));
 });
 
-app.post("/api/templates", (req: Request, res: Response): Promise<any> => {
-  const template = req.body as CredentialTemplate;
+app.post(
+  "/api/templates",
+  async (req: Request, res: Response): Promise<any> => {
+    const template = req.body as CredentialTemplate;
 
-  if (!template.id || !template.name || !template.vct) {
-    return Promise.resolve(
-      res.status(400).json({ error: "Missing required fields" })
-    );
+    if (!template.id || !template.name || !template.vct) {
+      return Promise.resolve(
+        res.status(400).json({ error: "Missing required fields" })
+      );
+    }
+
+    const success = saveTemplate(template);
+    if (!success) {
+      return Promise.resolve(
+        res.status(500).json({ error: "Failed to save template" })
+      );
+    }
+
+    // Refresh issuer's supported credentials
+    // await initializeIssuer();
+
+    return Promise.resolve(res.status(201).json(template));
   }
-
-  const success = saveTemplate(template);
-  if (!success) {
-    return Promise.resolve(
-      res.status(500).json({ error: "Failed to save template" })
-    );
-  }
-
-  return Promise.resolve(res.status(201).json(template));
-});
+);
 
 app.delete(
   "/api/templates/:id",
@@ -80,6 +86,7 @@ app.delete(
 
 // API endpoint to issue credential based on template
 app.post("/api/issue", async (req: Request, res: Response): Promise<any> => {
+  console.log("Received issue request:", req.body); // <--- Add this
   try {
     const { templateId, data } = req.body;
     const template = getTemplateById(templateId);
@@ -87,19 +94,18 @@ app.post("/api/issue", async (req: Request, res: Response): Promise<any> => {
       return res.status(404).json({ error: "Template not found" });
     }
 
-    // Use data as fieldValues
-    const fieldValues = data;
-
-    // Initialize the agent
-    const acmeAgent = await initializeAcmeAgentIssuer();
-
-    // Here, you'd normally use the template and field values to create a credential
-    const result = await run();
+    // Pass templateId to issueCredentialOffer
+    const { credentialOffer, issuanceSession } = await issueCredentialOffer(
+      data,
+      templateId
+    );
+    console.log("credentialOffer:", credentialOffer); // <-- Add this line
 
     return res.json({
       success: true,
       message: "Credential issued successfully",
       templateUsed: template.id,
+      offerUrl: credentialOffer || undefined,
     });
   } catch (error) {
     console.error("Error issuing credential:", error);
@@ -107,27 +113,35 @@ app.post("/api/issue", async (req: Request, res: Response): Promise<any> => {
   }
 });
 
-app.post("/api/templates/:id", (req: Request, res: Response): Promise<any> => {
-  const template = req.body as CredentialTemplate;
-  if (!template.id || !template.name || !template.vct) {
-    return Promise.resolve(
-      res.status(400).json({ error: "Missing required fields" })
-    );
+app.put(
+  "/api/templates/:id",
+  async (req: Request, res: Response): Promise<any> => {
+    const template = req.body as CredentialTemplate;
+    if (!template.id || !template.name || !template.vct) {
+      return Promise.resolve(
+        res.status(400).json({ error: "Missing required fields" })
+      );
+    }
+    const success = saveTemplate(template);
+    if (!success) {
+      return Promise.resolve(
+        res.status(404).json({ error: "Failed to update template" })
+      );
+    }
+
+    // Refresh issuer's supported credentials
+    // await initializeIssuer();
+
+    return Promise.resolve(res.json(template));
   }
-  // Optionally, check that req.params.id === template.id
-  const success = saveTemplate(template);
-  if (!success) {
-    return Promise.resolve(
-      res.status(404).json({ error: "Failed to update template" })
-    );
-  }
-  return Promise.resolve(res.json(template));
-});
+);
 // Start the server with dynamic port assignment
 const startServer = async () => {
   try {
+    // Initialize agent, issuer, and DID before starting the server
+    await initializeIssuer();
+
     // Try to use the specified port or find an available one
-    // Start from 3000 for web server
     const preferredPort = parseInt(process.env.PORT || "3000", 10);
     const port = await findAvailablePort(preferredPort);
 

@@ -17,8 +17,6 @@ import credentialRequestToCredentialMapper from "./credentialMapper";
 import { findAvailablePort } from "./utils/port-utils";
 
 const issuerRouter = Router();
-const app = express();
-app.use("/oid4vci", issuerRouter);
 
 const initializeAcmeAgentIssuer = async () => {
   // Find an available port for the agent's HTTP inbound transport
@@ -67,4 +65,4 @@ const initializeAcmeAgentIssuer = async () => {
   return agent;
 };
 
-export { initializeAcmeAgentIssuer, app };
+export { initializeAcmeAgentIssuer, issuerRouter };

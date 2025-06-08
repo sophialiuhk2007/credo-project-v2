@@ -2,12 +2,8 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const openid4vc_1 = require("@credo-ts/openid4vc");
 const core_1 = require("@credo-ts/core");
-const issuer_main_1 = require("./issuer_main");
 const credentialRequestToCredentialMapper = async ({ agentContext, credentialOffer, credentialRequest, credentialsSupported, holderBinding, issuanceSession, }) => {
     console.log("Mapper session id:", issuanceSession?.id);
-    console.log("Full issuanceSession.metadata:", JSON.stringify(issuanceSession?.metadata, null, 2));
-    console.log("sessionDataMap has session?", issuer_main_1.sessionDataMap.has(issuanceSession?.id || ""));
-    console.log("sessionDataMap contents:", Array.from(issuer_main_1.sessionDataMap.entries()));
     const firstSupported = credentialsSupported[0];
     if (!firstSupported || !firstSupported.id) {
         throw new Error("No supported credential or credentialSupportedId found");
@@ -19,25 +15,12 @@ const credentialRequestToCredentialMapper = async ({ agentContext, credentialOff
     // --- Extract user-inputted fields from issuanceSession.metadata or credentialRequest.claims ---
     let payloadFields = {};
     console.log("Mapper received data:", issuanceSession?.metadata?.data);
-    // Check if metadata.data exists and has content
-    if (issuanceSession?.metadata?.data &&
-        Object.keys(issuanceSession.metadata.data).length > 0) {
+    // Prefer issuanceSession.metadata.data (set in your backend when creating the offer)
+    if (issuanceSession?.metadata?.data) {
         payloadFields = { ...issuanceSession.metadata.data };
-        console.log("Using issuanceSession.metadata.data");
-    }
-    // Workaround: look up data by session ID if missing
-    else if (issuanceSession?.id && issuer_main_1.sessionDataMap.has(issuanceSession.id)) {
-        payloadFields = { ...issuer_main_1.sessionDataMap.get(issuanceSession.id) };
-        console.log("Mapper loaded data from sessionDataMap:", payloadFields);
-        // Clean up the stored data after use
-        issuer_main_1.sessionDataMap.delete(issuanceSession.id);
-    }
-    else {
-        console.log("No data found in either location!");
     }
     // Always include vct
     payloadFields.vct = firstSupported.vct;
-    console.log("Final payloadFields:", payloadFields);
     // Find the first did:key DID in the wallet
     const didsApi = agentContext.dependencyManager.resolve(core_1.DidsApi);
     const [didKeyDidRecord] = await didsApi.getCreatedDids({
