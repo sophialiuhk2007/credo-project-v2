@@ -1,0 +1,14 @@
+{
+  "id": "AcmeMember",
+  "name": "Acme Member",
+  "description": "A membership card for those enrolled in Acme",
+  "vct": "AcmeMember",
+  "fields": [
+    {
+      "name": "memberID",
+      "type": "string",
+      "description": "Member ID",
+      "required": true
+    }
+  ]
+}
