@@ -1,0 +1,10 @@
+# Ignore certificate files
+certs/
+# Ignore environment variables
+.env
+# Ignore build output
+dist/
+# Node modules
+node_modules/
+# OS files
+.DS_Store
