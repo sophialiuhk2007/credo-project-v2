@@ -6,7 +6,7 @@
   "fields": [
     {
       "name": "firstName",
-      "label": "first name",
+      "label": "firstName",
       "type": "text",
       "description": "",
       "required": true,

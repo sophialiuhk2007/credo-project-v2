@@ -22,13 +22,15 @@
     "@credo-ts/openid4vc": "^0.5.15",
     "@credo-ts/react-native": "^0.5.15",
     "@hyperledger/aries-askar-nodejs": "^0.2.3",
+    "axios": "^1.10.0",
     "express": "^5.1.0",
+    "passkit-generator": "^3.4.0",
     "react-native-fs": "^2.20.0",
     "react-native-get-random-values": "^1.11.0"
   },
   "devDependencies": {
-    "@types/express": "^5.0.2",
-    "@types/node": "^22.15.29",
+    "@types/express": "^5.0.3",
+    "@types/node": "^22.15.33",
     "typescript": "^5.8.3"
   }
 }

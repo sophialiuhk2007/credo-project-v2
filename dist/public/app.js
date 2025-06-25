@@ -27,6 +27,7 @@ const DOM = {
   pages: {
     home: document.getElementById("home"),
     templates: document.getElementById("templates"),
+    pkpassDesigner: document.getElementById("pkpassDesigner"), // <-- add this
     templateEditor: document.getElementById("templateEditor"),
     issueCredential: document.getElementById("issueCredential"),
   },
@@ -514,24 +515,36 @@ const UI = {
       // Gather fields data
       const fieldElements = DOM.fieldsContainer.querySelectorAll(".field-item");
       fieldElements.forEach((fieldEl) => {
+        const originalName = fieldEl.querySelector(".field-name").value;
+        const camelName = originalName
+          .replace(/(?:^\w|[A-Z]|\b\w)/g, (word, index) =>
+            index === 0 ? word.toLowerCase() : word.toUpperCase()
+          )
+          .replace(/\s+/g, "")
+          .replace(/[^a-zA-Z0-9]/g, "");
+
         templateData.fields.push({
-          name: fieldEl.querySelector(".field-name").value,
+          name: camelName,
+          label: originalName, // Store the original for display
           type: fieldEl.querySelector(".field-type").value,
           description: fieldEl.querySelector(".field-description").value,
           required: fieldEl.querySelector(".field-required").checked,
           selectivelyDisclosable:
-            fieldEl.querySelector(".field-selective").checked, // Add this line
+            fieldEl.querySelector(".field-selective").checked,
         });
       });
 
-      // Save template
+      // ...after saving the template:
       const savedTemplate = await API.saveTemplate(templateData);
       if (!savedTemplate) throw new Error("Failed to save template");
+
+      AppState.currentTemplate = savedTemplate; // <-- set this before navigating
 
       alert(`Template "${savedTemplate.name}" saved successfully!`);
       await this.renderTemplatesList();
       await this.renderIssueTemplateGrid();
-      this.navigateTo("templates");
+      this.navigateTo("pkpassDesigner");
+      populatePkpassFieldDropdowns(); // <-- call directly here
     } catch (error) {
       console.error("Error saving template:", error);
       alert("Failed to save template. Please try again.");
@@ -594,14 +607,20 @@ const UI = {
 
         const label = document.createElement("label");
         label.setAttribute("for", `field_${field.name}`);
-        label.textContent = field.name;
+        label.textContent = field.label
+          ? toTitleCase(field.label)
+          : toTitleCase(field.name); // Always use title case
         if (field.required) {
           const requiredSpan = document.createElement("span");
           requiredSpan.className = "required";
           requiredSpan.textContent = " *";
           label.appendChild(requiredSpan);
+        } else {
+          const optionalSpan = document.createElement("span");
+          optionalSpan.className = "optional";
+          optionalSpan.textContent = " (optional)";
+          label.appendChild(optionalSpan);
         }
-
         let input;
         switch (field.type) {
           case "boolean":
@@ -651,7 +670,9 @@ const UI = {
             input.type = "text";
             input.id = `field_${field.name}`;
             input.name = field.name;
-            if (field.required) input.required = true;
+            if (field.required) {
+              input.required = true;
+            }
 
             fieldGroup.appendChild(label);
             fieldGroup.appendChild(input);
@@ -747,7 +768,30 @@ const UI = {
     this.updateIssuanceStep("select");
   },
 };
+function populatePkpassFieldDropdowns() {
+  const fields =
+    (AppState.currentTemplate && AppState.currentTemplate.fields) || [];
+  const options = fields
+    .map(
+      (f) =>
+        `<option value="${f.name}">${
+          f.label ? toTitleCase(f.label) : toTitleCase(f.name)
+        }</option>`
+    )
+    .join("");
 
+  [
+    "pkpassPrimaryField",
+    "pkpassSecondaryField1",
+    "pkpassSecondaryField2",
+    "pkpassAuxField1",
+    "pkpassAuxField2",
+  ].forEach((id) => {
+    const select = document.getElementById(id);
+    if (select)
+      select.innerHTML = `<option value="">-- Select Template Field --</option>${options}`;
+  });
+}
 // Initialize app
 function initApp() {
   // Set up navigation events
@@ -856,6 +900,253 @@ function initApp() {
 
   // Mock some stats
   DOM.credentialCount.textContent = "0";
+  document
+    .getElementById("pkpassForm")
+    .addEventListener("submit", async function (e) {
+      e.preventDefault();
+
+      // Gather dynamic pkpass fields
+      const pkpassFields = Array.from(
+        document.querySelectorAll("#pkpassFieldsContainer .pkpass-field-group")
+      ).map((group) => {
+        const type = group.dataset.type;
+        const label = group.querySelector('input[type="text"]').value;
+        const valueInput =
+          group.querySelectorAll('input[type="text"]')[1].value;
+        const selectValue = group.querySelector("select").value;
+        let value;
+        if (valueInput) value = { type: "static", value: valueInput };
+        else if (selectValue) value = { type: "field", value: selectValue };
+        else value = { type: "empty", value: "" };
+        return { type, label, value };
+      });
+
+      // Organize fields by type
+      const primary = pkpassFields.filter((f) => f.type === "primary");
+      const secondary = pkpassFields.filter((f) => f.type === "secondary");
+      const auxiliary = pkpassFields.filter((f) => f.type === "auxiliary");
+
+      const pkpassData = {
+        thumbnailUrl: document.getElementById("pkpassThumbnail").value,
+        primary,
+        secondary,
+        auxiliary,
+        backgroundColor: document.getElementById("pkpassBackgroundColor").value,
+        textColor: document.getElementById("pkpassTextColor").value,
+        logoText: document.getElementById("pkpassLogoText").value,
+        description: document.getElementById("pkpassDescription").value,
+      };
+
+      if (AppState.currentTemplate) {
+        AppState.currentTemplate.pkpass = pkpassData;
+        await API.saveTemplate(AppState.currentTemplate);
+      }
+
+      UI.navigateTo("templates");
+    });
+  document
+    .getElementById("pkpassBackBtn")
+    .addEventListener("click", function () {
+      UI.navigateTo("templateEditor");
+    });
+  document
+    .getElementById("backToTemplateEditor")
+    .addEventListener("click", function (e) {
+      e.preventDefault();
+      UI.navigateTo("templateEditor");
+    });
+  function updatePkpassAddFieldDropdown() {
+    const counts = { primary: 0, secondary: 0, auxiliary: 0 };
+    document
+      .querySelectorAll("#pkpassFieldsContainer .pkpass-field-group")
+      .forEach((group) => {
+        counts[group.dataset.type]++;
+      });
+    const dropdown = document.getElementById("addPkpassFieldType");
+    dropdown.querySelectorAll("option").forEach((opt) => {
+      if (!opt.value) return;
+      if (
+        (opt.value === "primary" && counts.primary >= 1) ||
+        (opt.value === "secondary" && counts.secondary >= 2) ||
+        (opt.value === "auxiliary" && counts.auxiliary >= 2)
+      ) {
+        opt.disabled = true;
+      } else {
+        opt.disabled = false;
+      }
+    });
+  }
+
+  function createPkpassField(type) {
+    const container = document.createElement("div");
+    container.className = "pkpass-field-group";
+    container.dataset.type = type;
+
+    // Add field type label
+    const typeLabel = document.createElement("label");
+    typeLabel.textContent =
+      type.charAt(0).toUpperCase() + type.slice(1) + " Field";
+    typeLabel.style.fontWeight = "bold";
+    typeLabel.style.marginRight = "0.5em";
+
+    // Label input
+    const labelInput = document.createElement("input");
+    labelInput.type = "text";
+    labelInput.placeholder = `${
+      type.charAt(0).toUpperCase() + type.slice(1)
+    } Label`;
+
+    // Value input
+    const valueInput = document.createElement("input");
+    valueInput.type = "text";
+    valueInput.placeholder = "Custom value";
+
+    // Dropdown for template fields
+    const select = document.createElement("select");
+    select.innerHTML =
+      `<option value="">Customize</option>` +
+      (AppState.currentTemplate?.fields || [])
+        .map(
+          (f) =>
+            `<option value="${f.name}">${
+              f.label ? toTitleCase(f.label) : toTitleCase(f.name)
+            }</option>`
+        )
+        .join("");
+
+    // Remove ("x") button
+    const delBtn = document.createElement("button");
+    delBtn.type = "button";
+    delBtn.className = "pkpass-remove-btn";
+    delBtn.title = "Remove field";
+    delBtn.innerHTML = "&times;";
+    delBtn.onclick = () => {
+      container.remove();
+      updatePkpassAddFieldDropdown();
+    };
+
+    // --- Input/Dropdown sync logic ---
+    valueInput.addEventListener("input", () => {
+      if (valueInput.value) {
+        select.value = "";
+        select.disabled = false;
+        valueInput.placeholder = "Custom value";
+      }
+    });
+    select.addEventListener("change", () => {
+      if (select.value) {
+        valueInput.value = "";
+        valueInput.disabled = true;
+        // Set placeholder to template field selected
+        const selectedOption = select.options[select.selectedIndex];
+        valueInput.placeholder =
+          selectedOption.textContent || "Template field selected";
+      } else {
+        valueInput.disabled = false;
+        valueInput.placeholder = "Custom value";
+      }
+    });
+
+    container.appendChild(typeLabel);
+    container.appendChild(labelInput);
+    container.appendChild(valueInput);
+    container.appendChild(select);
+    container.appendChild(delBtn);
+
+    document.getElementById("pkpassFieldsContainer").appendChild(container);
+    updatePkpassAddFieldDropdown();
+  }
+
+  document
+    .getElementById("addPkpassFieldBtn")
+    .addEventListener("click", function () {
+      const type = document.getElementById("addPkpassFieldType").value;
+      if (!type) return;
+      createPkpassField(type);
+      document.getElementById("addPkpassFieldType").value = "";
+    });
+
+  function renderPkpassPreview() {
+    const bg = document.getElementById("pkpassBackgroundColor").value;
+    const text = document.getElementById("pkpassTextColor").value;
+    const logo = document.getElementById("pkpassLogoText").value;
+    const desc = document.getElementById("pkpassDescription").value;
+    const thumb = document.getElementById("pkpassThumbnail").value;
+
+    const fields = Array.from(
+      document.querySelectorAll("#pkpassFieldsContainer .pkpass-field-group")
+    ).map((group) => {
+      const type = group.dataset.type;
+      const label = group.querySelectorAll("input")[0].value;
+      const valueInput = group.querySelectorAll("input")[1].value;
+      const selectValue = group.querySelector("select").value;
+      let value;
+      if (valueInput) value = valueInput;
+      else if (selectValue) value = `[${selectValue}]`;
+      else value = "";
+      return { type, label, value };
+    });
+
+    const primary = fields.filter((f) => f.type === "primary");
+    const secondary = fields.filter((f) => f.type === "secondary");
+    const auxiliary = fields.filter((f) => f.type === "auxiliary");
+
+    let html = `<div style="background:${bg};color:${text};padding:1em;border-radius:12px;min-width:250px;max-width:350px;">`;
+    if (thumb)
+      html += `<img src="${thumb}" class="pkpass-thumbnail" alt="thumbnail"/><br/>`;
+    if (logo) html += `<div class="pkpass-logo">${logo}</div>`;
+    if (desc) html += `<div class="pkpass-desc">${desc}</div>`;
+    if (primary.length)
+      html += `<div class="pkpass-primary"><strong>${primary[0].label}:</strong> ${primary[0].value}</div>`;
+    if (secondary.length)
+      html += `<div class="pkpass-secondary">${secondary
+        .map((s) => `<div><strong>${s.label}:</strong> ${s.value}</div>`)
+        .join("")}</div>`;
+    if (auxiliary.length)
+      html += `<div class="pkpass-auxiliary">${auxiliary
+        .map((a) => `<div><strong>${a.label}:</strong> ${a.value}</div>`)
+        .join("")}</div>`;
+    html += `</div>`;
+
+    document.getElementById("pkpassPreview").innerHTML = html;
+  }
+
+  // Update preview on color/logo/desc/thumbnail change
+  [
+    "pkpassBackgroundColor",
+    "pkpassTextColor",
+    "pkpassLogoText",
+    "pkpassDescription",
+    "pkpassThumbnail",
+  ].forEach((id) => {
+    document.getElementById(id).addEventListener("input", renderPkpassPreview);
+  });
+
+  const pkpassThumbnailInput = document.getElementById("pkpassThumbnail");
+  const pkpassThumbnailPreview = document.getElementById(
+    "pkpassThumbnailPreview"
+  );
+  if (pkpassThumbnailInput && pkpassThumbnailPreview) {
+    document
+      .getElementById("pkpassThumbnail")
+      .addEventListener("change", function (e) {
+        const file = e.target.files[0];
+        const preview = document.getElementById("pkpassThumbnailPreview");
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = function (evt) {
+            preview.src = evt.target.result; // This is a data: URL
+            preview.style.display = "block";
+          };
+          reader.readAsDataURL(file);
+        } else {
+          preview.src = "";
+          preview.style.display = "none";
+        }
+      });
+  }
+  // On page load or navigation to pkpassDesigner, call renderPkpassPreview and updatePkpassAddFieldDropdown
+  // (You may want to call these in your navigation logic as well)
 }
 
 // Load app when DOM is ready

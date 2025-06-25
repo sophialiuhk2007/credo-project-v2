@@ -142,7 +142,9 @@
                 <h3>Basic Information</h3>
                 <div class="form-row">
                   <div class="form-group">
-                    <label for="templateName">Name</label>
+                    <label for="templateName"
+                      >Name <span class="required">*</span></label
+                    >
                     <input type="text" id="templateName" required />
                   </div>
                 </div>
@@ -182,7 +184,112 @@
               </div>
             </form>
           </section>
-
+          <section id="pkpassDesigner" class="page">
+            <div class="breadcrumb">
+              <a href="#" id="backToTemplateEditor">Back to Template Editor</a>
+              /
+              <span>Apple Wallet Pass Design</span>
+            </div>
+            <form id="pkpassForm" class="card-form">
+              <div class="pkpass-designer-flex">
+                <!-- Left: Inputs -->
+                <div class="pkpass-designer-inputs">
+                  <div class="form-section">
+                    <h3>Design Your Apple Wallet Pass</h3>
+                    <div class="form-group">
+                      <label for="pkpassLogoText">Logo Text</label>
+                      <input
+                        type="text"
+                        id="pkpassLogoText"
+                        placeholder="Logo Text"
+                      />
+                    </div>
+                    <div class="form-group">
+                      <label for="pkpassDescription">Description</label>
+                      <input
+                        type="text"
+                        id="pkpassDescription"
+                        placeholder="Description"
+                      />
+                    </div>
+                    <div class="form-group">
+                      <label for="pkpassThumbnail">Thumbnail Image</label>
+                      <input
+                        type="file"
+                        id="pkpassThumbnail"
+                        accept="image/*"
+                        style="margin-bottom: 0.5em"
+                      />
+                      <img
+                        id="pkpassThumbnailPreview"
+                        src=""
+                        alt="Thumbnail Preview"
+                        style="
+                          display: none;
+                          max-width: 100%;
+                          border-radius: 8px;
+                          margin-top: 0.5em;
+                        "
+                      />
+                    </div>
+                    <div id="pkpassFieldsContainer"></div>
+                    <div
+                      class="form-group"
+                      style="display: flex; gap: 1em; align-items: flex-end"
+                    >
+                      <select id="addPkpassFieldType">
+                        <option value="">Add Field...</option>
+                        <option value="primary">Primary</option>
+                        <option value="secondary">Secondary</option>
+                        <option value="auxiliary">Auxiliary</option>
+                      </select>
+                      <button
+                        type="button"
+                        id="addPkpassFieldBtn"
+                        class="btn secondary-btn"
+                      >
+                        Add Field
+                      </button>
+                    </div>
+                    <div class="form-row">
+                      <div class="form-group" style="flex: 1">
+                        <label for="pkpassBackgroundColor"
+                          >Background Color</label
+                        >
+                        <input
+                          type="color"
+                          id="pkpassBackgroundColor"
+                          class="styled-color"
+                          value="#FFFFFF"
+                        />
+                      </div>
+                      <div class="form-group" style="flex: 1">
+                        <label for="pkpassTextColor">Text Color</label>
+                        <input
+                          type="color"
+                          id="pkpassTextColor"
+                          class="styled-color"
+                          value="#000000"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  <div class="form-actions">
+                    <button
+                      type="button"
+                      id="pkpassBackBtn"
+                      class="btn secondary-btn"
+                    >
+                      Back
+                    </button>
+                    <button type="submit" class="btn primary-btn">
+                      Save & Finish
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </form>
+          </section>
           <section id="issueCredential" class="page">
             <div class="issuance-stepper">
               <div class="step active" data-step="select">
@@ -321,11 +428,11 @@
         <div class="field-body">
           <div class="form-row">
             <div class="form-group">
-              <label>Field Name</label>
+              <label>Field Name<span class="required">*</span></label>
               <input type="text" class="field-name" required />
             </div>
             <div class="form-group">
-              <label>Field Type</label>
+              <label>Field Type <span class="required">*</span></label>
               <select class="field-type">
                 <option value="text">Text</option>
                 <option value="number">Number</option>
