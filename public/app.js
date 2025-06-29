@@ -574,6 +574,11 @@ const UI = {
         description: document.getElementById("templateDescription").value,
         vct: camelName,
         fields: [],
+        // Preserve existing pkpass design if editing
+        pkpass:
+          AppState.currentTemplate && AppState.currentTemplate.pkpass
+            ? AppState.currentTemplate.pkpass
+            : undefined,
       };
 
       // Gather fields data
@@ -857,7 +862,7 @@ const UI = {
         .map(
           (f) =>
             `<option value="${f.name}">${
-              f.label ? toTitleCase(f.label) : toTitleCase(f.name)
+              f.label ? prettifyLabel(f.label) : prettifyLabel(f.name)
             }</option>`
         )
         .join("");
@@ -933,7 +938,7 @@ function populatePkpassFieldDropdowns() {
     .map(
       (f) =>
         `<option value="${f.name}">${
-          f.label ? toTitleCase(f.label) : toTitleCase(f.name)
+          f.label ? prettifyLabel(f.label) : prettifyLabel(f.name)
         }</option>`
     )
     .join("");
@@ -1097,7 +1102,6 @@ function initApp() {
       if (AppState.currentTemplate) {
         AppState.currentTemplate.pkpass = pkpassData;
         await API.saveTemplate(AppState.currentTemplate);
-        console.log(2, AppState.currentTemplate);
       }
 
       UI.navigateTo("templates");
