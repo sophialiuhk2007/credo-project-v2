@@ -187,15 +187,26 @@
           <section id="pkpassDesigner" class="page">
             <div class="breadcrumb">
               <a href="#" id="backToTemplateEditor">Back to Template Editor</a>
-              /
               <span>Apple Wallet Pass Design</span>
             </div>
             <form id="pkpassForm" class="card-form">
               <div class="pkpass-designer-flex">
                 <!-- Left: Inputs -->
+
                 <div class="pkpass-designer-inputs">
                   <div class="form-section">
                     <h3>Design Your Apple Wallet Pass</h3>
+
+                    <div class="form-group">
+                      <label for="pkpassDescription"
+                        >Display Name in Apple Wallet</label
+                      >
+                      <input
+                        type="text"
+                        id="pkpassDescription"
+                        placeholder="Description"
+                      />
+                    </div>
                     <div class="form-group">
                       <label for="pkpassLogoText">Logo Text</label>
                       <input
@@ -205,11 +216,23 @@
                       />
                     </div>
                     <div class="form-group">
-                      <label for="pkpassDescription">Description</label>
+                      <label for="pkpassLogo">Logo Image</label>
                       <input
-                        type="text"
-                        id="pkpassDescription"
-                        placeholder="Description"
+                        type="file"
+                        id="pkpassLogo"
+                        accept="image/*"
+                        style="margin-bottom: 0.5em"
+                      />
+                      <img
+                        id="pkpassLogoPreview"
+                        src=""
+                        alt="Logo Preview"
+                        style="
+                          display: none;
+                          max-width: 100%;
+                          border-radius: 8px;
+                          margin-top: 0.5em;
+                        "
                       />
                     </div>
                     <div class="form-group">

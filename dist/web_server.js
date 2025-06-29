@@ -11,7 +11,6 @@ const issuer_main_1 = require("./issuer_main");
 const issuer_config_1 = require("./issuer_config"); // <-- add this
 const port_utils_1 = require("./utils/port-utils");
 const fs_1 = __importDefault(require("fs"));
-const axios_1 = __importDefault(require("axios"));
 const dotenv_1 = __importDefault(require("dotenv"));
 const generatePkpass_1 = require("./utils/generatePkpass"); // <-- create this utility
 dotenv_1.default.config();
@@ -109,87 +108,6 @@ app.put("/api/templates/:id", async (req, res) => {
     // Refresh issuer's supported credentials
     await (0, issuer_main_1.initializeIssuer)();
     return Promise.resolve(res.json(template));
-});
-app.post("/api/pass", async (req, res) => {
-    try {
-        // Your pkpass logic here (adapted from your Firebase function)
-        if (!req.body ||
-            !req.body.primary ||
-            !Array.isArray(req.body.secondary) ||
-            req.body.secondary.length < 2 ||
-            !Array.isArray(req.body.auxiliary) ||
-            req.body.auxiliary.length < 2) {
-            res.status(400).send({ message: "Invalid request body" });
-            return;
-        }
-        const keyContent = fs_1.default.readFileSync(path_1.default.join(__dirname, "../certs/signerKey.pem"), "utf8");
-        const newPass = await PKPASS.from({
-            model: path_1.default.join(__dirname, "../model/custom.pass"),
-            certificates: {
-                wwdr: fs_1.default.readFileSync(path_1.default.join(__dirname, "../certs/wwdr2.pem")),
-                signerCert: fs_1.default.readFileSync(path_1.default.join(__dirname, "../certs/signerCert.pem")),
-                signerKey: fs_1.default.readFileSync(path_1.default.join(__dirname, "../certs/signerKey.pem")),
-                signerKeyPassphrase: process.env.PASSKIT_SIGNER_KEY_PASSPHRASE,
-            },
-        }, {
-            authenticationToken: "abcdefghijklmnopqrstuvwxyz",
-            webServiceURL: "https://example.com/passes/",
-            serialNumber: "1234567890",
-            description: req.body.description,
-            logoText: req.body.logoText,
-            foregroundColor: req.body.textColor,
-            backgroundColor: req.body.backgroundColor,
-        });
-        newPass.primaryFields.push({
-            key: "primary",
-            label: req.body.primary.label,
-            value: req.body.primary.value,
-        });
-        newPass.secondaryFields.push({
-            key: "secondary0",
-            label: req.body.secondary[0].label,
-            value: req.body.secondary[0].value,
-        }, {
-            key: "secondary1",
-            label: req.body.secondary[1].label,
-            value: req.body.secondary[1].value,
-        });
-        newPass.auxiliaryFields.push({
-            key: "auxiliary0",
-            label: req.body.auxiliary[0].label,
-            value: req.body.auxiliary[0].value,
-        }, {
-            key: "auxiliary1",
-            label: req.body.auxiliary[1].label,
-            value: req.body.auxiliary[1].value,
-        });
-        newPass.setBarcodes([
-            {
-                message: "1234567890",
-                format: "PKBarcodeFormatQR",
-                messageEncoding: "iso-8859-1",
-            },
-        ]);
-        const resp = await axios_1.default.get(req.body.thumbnailBase64, {
-            responseType: "arraybuffer",
-        });
-        const buffer = Buffer.from(resp.data, "utf-8");
-        newPass.addBuffer("thumbnail.png", buffer);
-        const bufferData = newPass.getAsBuffer();
-        // Send the .pkpass file directly in the response
-        res.setHeader("Content-Type", "application/vnd.apple.pkpass");
-        res.setHeader("Content-Disposition", "attachment; filename=custom.pkpass");
-        res.send(bufferData);
-        return;
-    }
-    catch (err) {
-        console.error("Error generating pass:", err);
-        res.status(500).send({
-            message: "Error generating pass.",
-            error: err instanceof Error ? err.message : String(err),
-        });
-        return;
-    }
 });
 // Start the server with dynamic port assignment
 const startServer = async () => {

@@ -18,6 +18,11 @@ const credentialRequestToCredentialMapper = async ({ agentContext, credentialOff
     if (issuanceSession?.metadata?.data &&
         Object.keys(issuanceSession.metadata.data).length > 0) {
         payloadFields = { ...issuanceSession.metadata.data };
+        // Add template if present in metadata
+        if ("template" in issuanceSession.metadata &&
+            issuanceSession.metadata.template) {
+            template = issuanceSession.metadata.template;
+        }
     }
     else if (issuanceSession?.id && issuer_main_1.sessionDataMap.has(issuanceSession.id)) {
         const sessionData = issuer_main_1.sessionDataMap.get(issuanceSession.id);
@@ -28,6 +33,15 @@ const credentialRequestToCredentialMapper = async ({ agentContext, credentialOff
             template,
         });
         issuer_main_1.sessionDataMap.delete(issuanceSession.id);
+    }
+    // Add standard date fields if not present
+    if (!payloadFields.issueDate) {
+        payloadFields.issueDate = new Date().toISOString();
+    }
+    if (!payloadFields.expiryDate && template?.expiryDays) {
+        const expiry = new Date();
+        expiry.setDate(expiry.getDate() + template.expiryDays);
+        payloadFields.expiryDate = expiry.toISOString();
     }
     // Always include vct
     payloadFields.vct = firstSupported.vct;

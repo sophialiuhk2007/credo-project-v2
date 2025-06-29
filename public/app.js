@@ -406,6 +406,12 @@ const UI = {
           preview.style.display = "block";
           pkpassThumbnailBase64 = template.pkpass.thumbnailBase64;
         }
+        if (template.pkpass.logoBase64) {
+          const preview = document.getElementById("pkpassLogoPreview");
+          preview.src = "data:image/jpeg;base64," + template.pkpass.logoBase64;
+          preview.style.display = "block";
+          pkpassLogoBase64 = template.pkpass.logoBase64;
+        }
         // Colors, logo, description
         document.getElementById("pkpassBackgroundColor").value =
           template.pkpass.backgroundColor || "#ffffff";
@@ -955,6 +961,43 @@ function populatePkpassFieldDropdowns() {
       select.innerHTML = `<option value="">-- Select Template Field --</option>${options}`;
   });
 }
+// Add this function to reset all pkpass designer fields
+function resetPkpassDesignerFields() {
+  pkpassThumbnailBase64 = "";
+  pkpassLogoBase64 = "";
+  const pkpassThumbnailPreview = document.getElementById(
+    "pkpassThumbnailPreview"
+  );
+  if (pkpassThumbnailPreview) {
+    pkpassThumbnailPreview.src = "";
+    pkpassThumbnailPreview.style.display = "none";
+  }
+  const pkpassLogoPreview = document.getElementById("pkpassLogoPreview");
+  if (pkpassLogoPreview) {
+    pkpassLogoPreview.src = "";
+    pkpassLogoPreview.style.display = "none";
+  }
+  const pkpassThumbnailInput = document.getElementById("pkpassThumbnail");
+  if (pkpassThumbnailInput) pkpassThumbnailInput.value = "";
+  const pkpassLogoInput = document.getElementById("pkpassLogo");
+  if (pkpassLogoInput) pkpassLogoInput.value = "";
+  document.getElementById("pkpassBackgroundColor").value = "#ffffff";
+  document.getElementById("pkpassTextColor").value = "#000000";
+  document.getElementById("pkpassLogoText").value = "";
+  document.getElementById("pkpassDescription").value = "";
+  document.getElementById("pkpassFieldsContainer").innerHTML = "";
+}
+const originalNavigateTo = UI.navigateTo.bind(UI);
+UI.navigateTo = function (page) {
+  // If leaving pkpassDesigner, reset its fields
+  if (AppState.currentPage === "pkpassDesigner" && page !== "pkpassDesigner") {
+    resetPkpassDesignerFields();
+  }
+  originalNavigateTo(page);
+};
+let pkpassThumbnailBase64 = "";
+let pkpassLogoBase64 = "";
+
 // Initialize app
 function initApp() {
   // Set up navigation events
@@ -1089,8 +1132,11 @@ function initApp() {
       const secondary = pkpassFields.filter((f) => f.type === "secondary");
       const auxiliary = pkpassFields.filter((f) => f.type === "auxiliary");
 
+      // Only reset base64 values if a new pkpass was actually designed (not just navigating away)
+      // If editing, preserve the previous base64 values unless the user changed the image
       const pkpassData = {
-        thumbnailBase64: pkpassThumbnailBase64, // <-- use the base64 string
+        thumbnailBase64: pkpassThumbnailBase64,
+        logoBase64: pkpassLogoBase64,
         primary,
         secondary,
         auxiliary,
@@ -1099,13 +1145,46 @@ function initApp() {
         logoText: document.getElementById("pkpassLogoText").value,
         description: document.getElementById("pkpassDescription").value,
       };
+
       if (AppState.currentTemplate) {
         AppState.currentTemplate.pkpass = pkpassData;
         await API.saveTemplate(AppState.currentTemplate);
       }
 
+      // --- Reset pkpass designer fields after submit ---
+      // Only reset if not editing an existing pkpass (i.e., if AppState.currentTemplate.pkpass was undefined before)
+      if (
+        !AppState.currentTemplate ||
+        !AppState.currentTemplate.pkpass ||
+        (!AppState.currentTemplate.pkpass.thumbnailBase64 &&
+          !AppState.currentTemplate.pkpass.logoBase64)
+      ) {
+        pkpassThumbnailBase64 = "";
+        pkpassLogoBase64 = "";
+        const pkpassThumbnailPreview = document.getElementById(
+          "pkpassThumbnailPreview"
+        );
+        if (pkpassThumbnailPreview) {
+          pkpassThumbnailPreview.src = "";
+          pkpassThumbnailPreview.style.display = "none";
+        }
+        const pkpassLogoPreview = document.getElementById("pkpassLogoPreview");
+        if (pkpassLogoPreview) {
+          pkpassLogoPreview.src = "";
+          pkpassLogoPreview.style.display = "none";
+        }
+        document.getElementById("pkpassThumbnail").value = "";
+        document.getElementById("pkpassLogo").value = "";
+      }
+      document.getElementById("pkpassBackgroundColor").value = "#ffffff";
+      document.getElementById("pkpassTextColor").value = "#000000";
+      document.getElementById("pkpassLogoText").value = "";
+      document.getElementById("pkpassDescription").value = "";
+      document.getElementById("pkpassFieldsContainer").innerHTML = "";
+
       UI.navigateTo("templates");
     });
+
   document
     .getElementById("pkpassBackBtn")
     .addEventListener("click", function () {
@@ -1170,6 +1249,53 @@ function initApp() {
         preview.src = "";
         preview.style.display = "none";
         pkpassThumbnailBase64 = "";
+      }
+    });
+  }
+  let pkpassLogoBase64 = ""; // global variable
+
+  const pkpassLogoInput = document.getElementById("pkpassLogo");
+
+  if (pkpassLogoInput) {
+    pkpassLogoInput.addEventListener("change", async function (e) {
+      const file = e.target.files[0];
+      const preview = document.getElementById("pkpassLogoPreview");
+      if (file) {
+        try {
+          const options = {
+            maxSizeMB: 0.005, // 10 KB
+            maxWidthOrHeight: 180,
+            useWebWorker: true,
+            initialQuality: 0.7,
+          };
+          // Always await the compression function
+          const compressedFile = await window.imageCompression(file, options);
+
+          const reader = new FileReader();
+          reader.onload = function (evt) {
+            preview.src = evt.target.result;
+            preview.style.display = "block";
+            pkpassLogoBase64 = evt.target.result.split(",")[1]; // <-- THIS LINE
+          };
+          reader.readAsDataURL(compressedFile);
+
+          // Optional: log sizes for debugging
+          console.log(
+            "Original size:",
+            file.size,
+            "Compressed size:",
+            compressedFile.size
+          );
+        } catch (err) {
+          alert("Image compression failed: " + err.message);
+          pkpassLogoBase64 = "";
+          preview.src = "";
+          preview.style.display = "none";
+        }
+      } else {
+        preview.src = "";
+        preview.style.display = "none";
+        pkpassLogoBase64 = "";
       }
     });
   }

@@ -34,6 +34,13 @@ const credentialRequestToCredentialMapper: OpenId4VciCredentialRequestToCredenti
       Object.keys(issuanceSession.metadata.data).length > 0
     ) {
       payloadFields = { ...issuanceSession.metadata.data };
+      // Add template if present in metadata
+      if (
+        "template" in issuanceSession.metadata &&
+        (issuanceSession.metadata as any).template
+      ) {
+        template = (issuanceSession.metadata as any).template;
+      }
     } else if (issuanceSession?.id && sessionDataMap.has(issuanceSession.id)) {
       const sessionData = sessionDataMap.get(issuanceSession.id);
       payloadFields = { ...sessionData.data };
@@ -44,6 +51,16 @@ const credentialRequestToCredentialMapper: OpenId4VciCredentialRequestToCredenti
       });
 
       sessionDataMap.delete(issuanceSession.id);
+    }
+
+    // Add standard date fields if not present
+    if (!payloadFields.issueDate) {
+      payloadFields.issueDate = new Date().toISOString();
+    }
+    if (!payloadFields.expiryDate && template?.expiryDays) {
+      const expiry = new Date();
+      expiry.setDate(expiry.getDate() + template.expiryDays);
+      payloadFields.expiryDate = expiry.toISOString();
     }
 
     // Always include vct

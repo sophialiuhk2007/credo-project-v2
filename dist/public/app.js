@@ -82,7 +82,9 @@ function toCamelCaseWithCap(str) {
     )
     .replace(/\s+/g, "");
 }
-
+function prettifyLabel(str) {
+  return toTitleCase(str.replace(/([A-Z])/g, " $1").replace(/_/g, " "));
+}
 // API Service
 const API = {
   baseUrl: "/api",
@@ -404,6 +406,12 @@ const UI = {
           preview.style.display = "block";
           pkpassThumbnailBase64 = template.pkpass.thumbnailBase64;
         }
+        if (template.pkpass.logoBase64) {
+          const preview = document.getElementById("pkpassLogoPreview");
+          preview.src = "data:image/jpeg;base64," + template.pkpass.logoBase64;
+          preview.style.display = "block";
+          pkpassLogoBase64 = template.pkpass.logoBase64;
+        }
         // Colors, logo, description
         document.getElementById("pkpassBackgroundColor").value =
           template.pkpass.backgroundColor || "#ffffff";
@@ -572,6 +580,11 @@ const UI = {
         description: document.getElementById("templateDescription").value,
         vct: camelName,
         fields: [],
+        // Preserve existing pkpass design if editing
+        pkpass:
+          AppState.currentTemplate && AppState.currentTemplate.pkpass
+            ? AppState.currentTemplate.pkpass
+            : undefined,
       };
 
       // Gather fields data
@@ -664,8 +677,8 @@ const UI = {
         const label = document.createElement("label");
         label.setAttribute("for", `field_${field.name}`);
         label.textContent = field.label
-          ? toTitleCase(field.label)
-          : toTitleCase(field.name); // Always use title case
+          ? prettifyLabel(field.label)
+          : prettifyLabel(field.name);
         if (field.required) {
           const requiredSpan = document.createElement("span");
           requiredSpan.className = "required";
@@ -855,7 +868,7 @@ const UI = {
         .map(
           (f) =>
             `<option value="${f.name}">${
-              f.label ? toTitleCase(f.label) : toTitleCase(f.name)
+              f.label ? prettifyLabel(f.label) : prettifyLabel(f.name)
             }</option>`
         )
         .join("");
@@ -931,7 +944,7 @@ function populatePkpassFieldDropdowns() {
     .map(
       (f) =>
         `<option value="${f.name}">${
-          f.label ? toTitleCase(f.label) : toTitleCase(f.name)
+          f.label ? prettifyLabel(f.label) : prettifyLabel(f.name)
         }</option>`
     )
     .join("");
@@ -1084,6 +1097,7 @@ function initApp() {
 
       const pkpassData = {
         thumbnailBase64: pkpassThumbnailBase64, // <-- use the base64 string
+        logoBase64: pkpassLogoBase64, // <-- use the base64 string
         primary,
         secondary,
         auxiliary,
@@ -1095,7 +1109,6 @@ function initApp() {
       if (AppState.currentTemplate) {
         AppState.currentTemplate.pkpass = pkpassData;
         await API.saveTemplate(AppState.currentTemplate);
-        console.log(2, AppState.currentTemplate);
       }
 
       UI.navigateTo("templates");
@@ -1117,7 +1130,7 @@ function initApp() {
     .addEventListener("click", function () {
       const type = document.getElementById("addPkpassFieldType").value;
       if (!type) return;
-      createPkpassField(type);
+      UI.createPkpassField(type);
       document.getElementById("addPkpassFieldType").value = "";
     });
 
@@ -1164,6 +1177,53 @@ function initApp() {
         preview.src = "";
         preview.style.display = "none";
         pkpassThumbnailBase64 = "";
+      }
+    });
+  }
+  let pkpassLogoBase64 = ""; // global variable
+
+  const pkpassLogoInput = document.getElementById("pkpassLogo");
+
+  if (pkpassLogoInput) {
+    pkpassLogoInput.addEventListener("change", async function (e) {
+      const file = e.target.files[0];
+      const preview = document.getElementById("pkpassLogoPreview");
+      if (file) {
+        try {
+          const options = {
+            maxSizeMB: 0.005, // 10 KB
+            maxWidthOrHeight: 180,
+            useWebWorker: true,
+            initialQuality: 0.7,
+          };
+          // Always await the compression function
+          const compressedFile = await window.imageCompression(file, options);
+
+          const reader = new FileReader();
+          reader.onload = function (evt) {
+            preview.src = evt.target.result;
+            preview.style.display = "block";
+            pkpassLogoBase64 = evt.target.result.split(",")[1]; // <-- THIS LINE
+          };
+          reader.readAsDataURL(compressedFile);
+
+          // Optional: log sizes for debugging
+          console.log(
+            "Original size:",
+            file.size,
+            "Compressed size:",
+            compressedFile.size
+          );
+        } catch (err) {
+          alert("Image compression failed: " + err.message);
+          pkpassLogoBase64 = "";
+          preview.src = "";
+          preview.style.display = "none";
+        }
+      } else {
+        preview.src = "";
+        preview.style.display = "none";
+        pkpassLogoBase64 = "";
       }
     });
   }

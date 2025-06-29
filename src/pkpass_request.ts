@@ -1,7 +1,7 @@
 import express, { Request, Response } from "express";
 // Assume verifier_main exports a function called verifyCredential
 // Assume generatePkpass is a function that creates a pkpass file/buffer
-import { generatePkpassFromTemplate } from "./utils/generatePkpass";
+import { generatePkpassFromTemplate } from "./utils/generatePkpass"; // <-- create this utility
 import type { InitConfig } from "@credo-ts/core";
 import {
   Agent,
