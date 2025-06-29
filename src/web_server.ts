@@ -260,28 +260,6 @@ app.post("/api/pass", async (req: Request, res: Response): Promise<void> => {
   }
 });
 
-app.post(
-  "/api/upload-thumbnail",
-  async (req: Request, res: Response): Promise<void> => {
-    try {
-      const { filename, imageBase64 } = req.body;
-      if (!filename || !imageBase64) {
-        res.status(400).json({ error: "Missing filename or imageBase64" });
-        return;
-      }
-      const buffer = Buffer.from(imageBase64, "base64");
-      const savePath = path.join(__dirname, "../public/thumbnails", filename);
-      // Ensure the directory exists
-      fs.mkdirSync(path.dirname(savePath), { recursive: true });
-      fs.writeFileSync(savePath, buffer);
-      res.json({ success: true, path: `/public/thumbnails/${filename}` });
-    } catch (err) {
-      console.error("Failed to save thumbnail:", err);
-      res.status(500).json({ error: "Failed to save thumbnail" });
-    }
-  }
-);
-
 // Start the server with dynamic port assignment
 const startServer = async () => {
   try {
