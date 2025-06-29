@@ -1,0 +1,69 @@
+{
+  "id": "BlockchainClubMembership",
+  "name": "Blockchain Club Membership",
+  "description": "Membership certificate for 2024-2025 Blockchain Club",
+  "vct": "BlockchainClubMembership",
+  "fields": [
+    {
+      "name": "firstName",
+      "label": "firstName",
+      "type": "text",
+      "description": "",
+      "required": true,
+      "selectivelyDisclosable": false
+    },
+    {
+      "name": "lastName",
+      "label": "lastName",
+      "type": "text",
+      "description": "",
+      "required": true,
+      "selectivelyDisclosable": false
+    },
+    {
+      "name": "position",
+      "label": "position",
+      "type": "text",
+      "description": "",
+      "required": true,
+      "selectivelyDisclosable": true
+    }
+  ],
+  "pkpass": {
+    "thumbnailBase64": "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",
+    "primary": [
+      {
+        "type": "primary",
+        "label": "First Name",
+        "value": {
+          "type": "field",
+          "value": "firstName"
+        }
+      }
+    ],
+    "secondary": [
+      {
+        "type": "secondary",
+        "label": "Founder",
+        "value": {
+          "type": "field",
+          "value": "position"
+        }
+      }
+    ],
+    "auxiliary": [
+      {
+        "type": "auxiliary",
+        "label": "Year",
+        "value": {
+          "type": "empty",
+          "value": ""
+        }
+      }
+    ],
+    "backgroundColor": "#00fbff",
+    "textColor": "#fcfcfc",
+    "logoText": "Blockchain Club",
+    "description": "Membership Card"
+  }
+}

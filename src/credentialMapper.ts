@@ -4,6 +4,7 @@ import {
 } from "@credo-ts/openid4vc";
 import { DidsApi, DidKey } from "@credo-ts/core";
 import { sessionDataMap } from "./issuer_main";
+import { generatePkpassFromTemplate } from "./utils/generatePkpass"; // <-- Import your pkpass generator
 
 const credentialRequestToCredentialMapper: OpenId4VciCredentialRequestToCredentialMapper =
   async ({
@@ -77,6 +78,19 @@ const credentialRequestToCredentialMapper: OpenId4VciCredentialRequestToCredenti
 
     const didKey = DidKey.fromDid(didKeyDidRecord.did);
     const didUrl = `${didKey.did}#${didKey.key.fingerprint}`;
+
+    // --- Add pkpass to the credential payload ---
+    if (template) {
+      try {
+        const pkpassBuffer = await generatePkpassFromTemplate(
+          template,
+          payloadFields
+        );
+        payloadFields.pkpass = pkpassBuffer.toString("base64");
+      } catch (e) {
+        console.error("Failed to generate pkpass, skipping pkpass field:", e);
+      }
+    }
 
     return {
       credentialSupportedId: firstSupported.id,

@@ -14,6 +14,7 @@ import { findAvailablePort } from "./utils/port-utils";
 import fs from "fs";
 import axios from "axios";
 import dotenv from "dotenv";
+import { generatePkpassFromTemplate } from "./utils/generatePkpass"; // <-- create this utility
 
 dotenv.config();
 
@@ -22,7 +23,9 @@ const PKPASS = require("passkit-generator").PKPass;
 const app = express();
 
 // Middleware
-app.use(express.json());
+app.use(express.json({ limit: "5mb" })); // <-- Increase as needed
+app.use(express.urlencoded({ limit: "5mb", extended: true })); // For form data
+
 app.use(express.static(path.join(__dirname, "../public")));
 
 app.use("/oid4vci", issuerRouter); // <-- add this before your routes
@@ -90,7 +93,6 @@ app.delete(
   }
 );
 
-// API endpoint to issue credential based on template
 app.post("/api/issue", async (req: Request, res: Response): Promise<any> => {
   console.log("Received issue request:", req.body);
   try {
@@ -100,19 +102,29 @@ app.post("/api/issue", async (req: Request, res: Response): Promise<any> => {
       return res.status(404).json({ error: "Template not found" });
     }
 
-    // Pass both data and template to issueCredentialOffer
     const { credentialOffer, issuanceSession } = await issueCredentialOffer(
       data,
       templateId,
-      template // Pass the full template
+      template
     );
     console.log("credentialOffer:", credentialOffer);
+    const pkpassBuffer = await generatePkpassFromTemplate(template, data);
+    const pkpassBase64 = pkpassBuffer.toString("base64");
+    const passesDir = path.join(__dirname, "../passes");
+    if (!fs.existsSync(passesDir)) {
+      fs.mkdirSync(passesDir);
+    }
+    const filename = `pass-${Date.now()}.pkpass`;
+    const filePath = path.join(passesDir, filename);
+    fs.writeFileSync(filePath, pkpassBuffer);
+    console.log(`Saved pkpass to ${filePath}`);
 
     return res.json({
       success: true,
       message: "Credential issued successfully",
       templateUsed: template.id,
       offerUrl: credentialOffer || undefined,
+      pkpassBase64: pkpassBase64,
     });
   } catch (error) {
     console.error("Error issuing credential:", error);
@@ -226,7 +238,7 @@ app.post("/api/pass", async (req: Request, res: Response): Promise<void> => {
       },
     ]);
 
-    const resp = await axios.get(req.body.thumbnailUrl, {
+    const resp = await axios.get(req.body.thumbnailBase64, {
       responseType: "arraybuffer",
     });
     const buffer = Buffer.from(resp.data, "utf-8");
@@ -247,6 +259,28 @@ app.post("/api/pass", async (req: Request, res: Response): Promise<void> => {
     return;
   }
 });
+
+app.post(
+  "/api/upload-thumbnail",
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { filename, imageBase64 } = req.body;
+      if (!filename || !imageBase64) {
+        res.status(400).json({ error: "Missing filename or imageBase64" });
+        return;
+      }
+      const buffer = Buffer.from(imageBase64, "base64");
+      const savePath = path.join(__dirname, "../public/thumbnails", filename);
+      // Ensure the directory exists
+      fs.mkdirSync(path.dirname(savePath), { recursive: true });
+      fs.writeFileSync(savePath, buffer);
+      res.json({ success: true, path: `/public/thumbnails/${filename}` });
+    } catch (err) {
+      console.error("Failed to save thumbnail:", err);
+      res.status(500).json({ error: "Failed to save thumbnail" });
+    }
+  }
+);
 
 // Start the server with dynamic port assignment
 const startServer = async () => {

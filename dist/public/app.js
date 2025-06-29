@@ -3,6 +3,7 @@
  */
 
 // State Management
+import imageCompression from "browser-image-compression";
 const AppState = {
   currentPage: "home",
   templates: [],
@@ -81,6 +82,21 @@ function toCamelCaseWithCap(str) {
       index === 0 ? word.toUpperCase() : word.toUpperCase()
     )
     .replace(/\s+/g, "");
+}
+async function uploadPkpassThumbnail(
+  base64String,
+  filename = "pkpass-thumbnail.jpg"
+) {
+  const response = await fetch("/api/upload-thumbnail", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      filename,
+      imageBase64: base64String,
+    }),
+  });
+  if (!response.ok) throw new Error("Failed to upload thumbnail");
+  return await response.json();
 }
 // API Service
 const API = {
@@ -927,7 +943,7 @@ function initApp() {
       const auxiliary = pkpassFields.filter((f) => f.type === "auxiliary");
 
       const pkpassData = {
-        thumbnailUrl: document.getElementById("pkpassThumbnail").value,
+        thumbnailBase64: pkpassThumbnailBase64, // <-- use the base64 string
         primary,
         secondary,
         auxiliary,
@@ -936,10 +952,14 @@ function initApp() {
         logoText: document.getElementById("pkpassLogoText").value,
         description: document.getElementById("pkpassDescription").value,
       };
-
+      await uploadPkpassThumbnail(
+        pkpassThumbnailBase64,
+        "pkpass-thumbnail.jpg"
+      );
       if (AppState.currentTemplate) {
         AppState.currentTemplate.pkpass = pkpassData;
         await API.saveTemplate(AppState.currentTemplate);
+        console.log(2, AppState.currentTemplate);
       }
 
       UI.navigateTo("templates");
@@ -1066,84 +1086,50 @@ function initApp() {
       document.getElementById("addPkpassFieldType").value = "";
     });
 
-  function renderPkpassPreview() {
-    const bg = document.getElementById("pkpassBackgroundColor").value;
-    const text = document.getElementById("pkpassTextColor").value;
-    const logo = document.getElementById("pkpassLogoText").value;
-    const desc = document.getElementById("pkpassDescription").value;
-    const thumb = document.getElementById("pkpassThumbnail").value;
-
-    const fields = Array.from(
-      document.querySelectorAll("#pkpassFieldsContainer .pkpass-field-group")
-    ).map((group) => {
-      const type = group.dataset.type;
-      const label = group.querySelectorAll("input")[0].value;
-      const valueInput = group.querySelectorAll("input")[1].value;
-      const selectValue = group.querySelector("select").value;
-      let value;
-      if (valueInput) value = valueInput;
-      else if (selectValue) value = `[${selectValue}]`;
-      else value = "";
-      return { type, label, value };
-    });
-
-    const primary = fields.filter((f) => f.type === "primary");
-    const secondary = fields.filter((f) => f.type === "secondary");
-    const auxiliary = fields.filter((f) => f.type === "auxiliary");
-
-    let html = `<div style="background:${bg};color:${text};padding:1em;border-radius:12px;min-width:250px;max-width:350px;">`;
-    if (thumb)
-      html += `<img src="${thumb}" class="pkpass-thumbnail" alt="thumbnail"/><br/>`;
-    if (logo) html += `<div class="pkpass-logo">${logo}</div>`;
-    if (desc) html += `<div class="pkpass-desc">${desc}</div>`;
-    if (primary.length)
-      html += `<div class="pkpass-primary"><strong>${primary[0].label}:</strong> ${primary[0].value}</div>`;
-    if (secondary.length)
-      html += `<div class="pkpass-secondary">${secondary
-        .map((s) => `<div><strong>${s.label}:</strong> ${s.value}</div>`)
-        .join("")}</div>`;
-    if (auxiliary.length)
-      html += `<div class="pkpass-auxiliary">${auxiliary
-        .map((a) => `<div><strong>${a.label}:</strong> ${a.value}</div>`)
-        .join("")}</div>`;
-    html += `</div>`;
-
-    document.getElementById("pkpassPreview").innerHTML = html;
-  }
-
-  // Update preview on color/logo/desc/thumbnail change
-  [
-    "pkpassBackgroundColor",
-    "pkpassTextColor",
-    "pkpassLogoText",
-    "pkpassDescription",
-    "pkpassThumbnail",
-  ].forEach((id) => {
-    document.getElementById(id).addEventListener("input", renderPkpassPreview);
-  });
-
+  let pkpassThumbnailBase64 = ""; // Add this at the top-level (global in app.js)
   const pkpassThumbnailInput = document.getElementById("pkpassThumbnail");
-  const pkpassThumbnailPreview = document.getElementById(
-    "pkpassThumbnailPreview"
-  );
-  if (pkpassThumbnailInput && pkpassThumbnailPreview) {
-    document
-      .getElementById("pkpassThumbnail")
-      .addEventListener("change", function (e) {
-        const file = e.target.files[0];
-        const preview = document.getElementById("pkpassThumbnailPreview");
-        if (file) {
+
+  if (pkpassThumbnailInput) {
+    pkpassThumbnailInput.addEventListener("change", async function (e) {
+      const file = e.target.files[0];
+      const preview = document.getElementById("pkpassThumbnailPreview");
+      if (file) {
+        try {
+          const options = {
+            maxSizeMB: 0.01, // 10 KB
+            maxWidthOrHeight: 180,
+            useWebWorker: true,
+            initialQuality: 0.7,
+          };
+          // Always await the compression function
+          const compressedFile = await imageCompression(file, options);
           const reader = new FileReader();
           reader.onload = function (evt) {
-            preview.src = evt.target.result; // This is a data: URL
+            preview.src = evt.target.result;
             preview.style.display = "block";
+            pkpassThumbnailBase64 = evt.target.result.split(",")[1];
           };
-          reader.readAsDataURL(file);
-        } else {
+          reader.readAsDataURL(compressedFile);
+
+          // Optional: log sizes for debugging
+          console.log(
+            "Original size:",
+            file.size,
+            "Compressed size:",
+            compressedFile.size
+          );
+        } catch (err) {
+          alert("Image compression failed: " + err.message);
+          pkpassThumbnailBase64 = "";
           preview.src = "";
           preview.style.display = "none";
         }
-      });
+      } else {
+        preview.src = "";
+        preview.style.display = "none";
+        pkpassThumbnailBase64 = "";
+      }
+    });
   }
   // On page load or navigation to pkpassDesigner, call renderPkpassPreview and updatePkpassAddFieldDropdown
   // (You may want to call these in your navigation logic as well)

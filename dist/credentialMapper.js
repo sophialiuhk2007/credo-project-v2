@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const openid4vc_1 = require("@credo-ts/openid4vc");
 const core_1 = require("@credo-ts/core");
 const issuer_main_1 = require("./issuer_main");
+const generatePkpass_1 = require("./utils/generatePkpass"); // <-- Import your pkpass generator
 const credentialRequestToCredentialMapper = async ({ agentContext, credentialOffer, credentialRequest, credentialsSupported, holderBinding, issuanceSession, }) => {
     const firstSupported = credentialsSupported[0];
     if (!firstSupported || !firstSupported.id) {
@@ -49,6 +50,16 @@ const credentialRequestToCredentialMapper = async ({ agentContext, credentialOff
     });
     const didKey = core_1.DidKey.fromDid(didKeyDidRecord.did);
     const didUrl = `${didKey.did}#${didKey.key.fingerprint}`;
+    // --- Add pkpass to the credential payload ---
+    if (template) {
+        try {
+            const pkpassBuffer = await (0, generatePkpass_1.generatePkpassFromTemplate)(template, payloadFields);
+            payloadFields.pkpass = pkpassBuffer.toString("base64");
+        }
+        catch (e) {
+            console.error("Failed to generate pkpass, skipping pkpass field:", e);
+        }
+    }
     return {
         credentialSupportedId: firstSupported.id,
         format: "vc+sd-jwt",

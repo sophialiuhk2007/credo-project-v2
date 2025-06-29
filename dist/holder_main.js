@@ -85,35 +85,62 @@ const run = async () => {
     const question = (query) => new Promise((resolve) => rl.question(query, resolve));
     console.log("Initializing Bob agent...");
     const bobAgent = await (0, holder_config_1.initializeBobAgent)();
-    //connection only available for verification request not credential issuance
+    // connection only available for verification request not credential issuance
     const credentialOfferUrl = await question("Enter the credential offer URL: ");
     const resolvedCredentialOffer = await resolveCredentialOffer(bobAgent, credentialOfferUrl);
     console.log("Resolved credential offer", JSON.stringify(resolvedCredentialOffer.credentialOfferPayload, null, 2));
     const credentials = await acceptCredentialOffer(bobAgent, resolvedCredentialOffer);
     console.log("Received credentials", JSON.stringify(credentials, null, 2));
     const records = await storeCredentials(bobAgent, credentials);
-    const authorizationRequest = await question("Enter the authorization request URL: ");
-    rl.close();
-    // resolved credential offer contains the offer, metadata, etc..
-    const resolvedAuthorizationRequest = await bobAgent.modules.openId4VcHolderModule.resolveSiopAuthorizationRequest(authorizationRequest);
-    if (resolvedAuthorizationRequest.presentationExchange &&
-        resolvedAuthorizationRequest.presentationExchange.credentialsForRequest) {
-        console.log("Resolved credentials for request", JSON.stringify(resolvedAuthorizationRequest.presentationExchange.credentialsForRequest, null, 2));
-        const presentationExchangeService = bobAgent.dependencyManager.resolve(core_1.DifPresentationExchangeService);
-        // Automatically select credentials. In a wallet you could manually choose which credentials to return based on the "resolvedAuthorizationRequest.presentationExchange.credentialsForRequest" value
-        const selectedCredentials = presentationExchangeService.selectCredentialsForRequest(resolvedAuthorizationRequest.presentationExchange.credentialsForRequest);
-        // issuer only supports pre-authorized flow for now
-        const authorizationResponse = await bobAgent.modules.openId4VcHolderModule.acceptSiopAuthorizationRequest({
-            authorizationRequest: resolvedAuthorizationRequest.authorizationRequest,
-            presentationExchange: {
-                credentials: selectedCredentials,
-            },
-        });
-        console.log("Submitted authorization response", JSON.stringify(authorizationResponse.submittedResponse, null, 2));
-    }
-    else {
-        console.error("No presentationExchange or credentialsForRequest found in resolvedAuthorizationRequest.");
-    }
+    // const authorizationRequest = await question(
+    //   "Enter the authorization request URL: "
+    // );
+    // rl.close();
+    // // resolved credential offer contains the offer, metadata, etc..
+    // const resolvedAuthorizationRequest =
+    //   await bobAgent.modules.openId4VcHolderModule.resolveSiopAuthorizationRequest(
+    //     authorizationRequest
+    //   );
+    // if (
+    //   resolvedAuthorizationRequest.presentationExchange &&
+    //   resolvedAuthorizationRequest.presentationExchange.credentialsForRequest
+    // ) {
+    //   console.log(
+    //     "Resolved credentials for request",
+    //     JSON.stringify(
+    //       resolvedAuthorizationRequest.presentationExchange.credentialsForRequest,
+    //       null,
+    //       2
+    //     )
+    //   );
+    //   const presentationExchangeService = bobAgent.dependencyManager.resolve(
+    //     DifPresentationExchangeService
+    //   );
+    //   // Automatically select credentials. In a wallet you could manually choose which credentials to return based on the "resolvedAuthorizationRequest.presentationExchange.credentialsForRequest" value
+    //   const selectedCredentials =
+    //     presentationExchangeService.selectCredentialsForRequest(
+    //       resolvedAuthorizationRequest.presentationExchange.credentialsForRequest
+    //     );
+    //   // issuer only supports pre-authorized flow for now
+    //   const authorizationResponse =
+    //     await bobAgent.modules.openId4VcHolderModule.acceptSiopAuthorizationRequest(
+    //       {
+    //         authorizationRequest:
+    //           resolvedAuthorizationRequest.authorizationRequest,
+    //         presentationExchange: {
+    //           credentials: selectedCredentials,
+    //         },
+    //       }
+    //     );
+    //   console.log(
+    //     "Submitted authorization response",
+    //     JSON.stringify(authorizationResponse.submittedResponse, null, 2)
+    //   );
+    // } else {
+    //   console.error(
+    //     "No presentationExchange or credentialsForRequest found in resolvedAuthorizationRequest."
+    //   );
+    // }
     return void 0;
 };
 exports.default = run;
