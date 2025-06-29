@@ -110,15 +110,6 @@ app.post("/api/issue", async (req: Request, res: Response): Promise<any> => {
     console.log("credentialOffer:", credentialOffer);
     const pkpassBuffer = await generatePkpassFromTemplate(template, data);
     const pkpassBase64 = pkpassBuffer.toString("base64");
-    const passesDir = path.join(__dirname, "../passes");
-    if (!fs.existsSync(passesDir)) {
-      fs.mkdirSync(passesDir);
-    }
-    const filename = `pass-${Date.now()}.pkpass`;
-    const filePath = path.join(passesDir, filename);
-    fs.writeFileSync(filePath, pkpassBuffer);
-    console.log(`Saved pkpass to ${filePath}`);
-
     return res.json({
       success: true,
       message: "Credential issued successfully",

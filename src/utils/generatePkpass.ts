@@ -76,22 +76,11 @@ export async function generatePkpassFromTemplate(
   });
   if (template.pkpass && template.pkpass.thumbnailBase64) {
     const buffer = Buffer.from(template.pkpass.thumbnailBase64, "base64");
-
-    // Save the image to disk (optional)
-    const imagePath = path.join(__dirname, "../../passes/thumbnail.png");
-    fs.writeFileSync(imagePath, buffer);
-
-    // Add to pass
+    newPass.addBuffer("thumbnail.png", buffer);
     newPass.addBuffer("thumbnail@2x.png", buffer);
   }
   if (template.pkpass && template.pkpass.logoBase64) {
     const buffer = Buffer.from(template.pkpass.logoBase64, "base64");
-
-    // Save the image to disk (optional)
-    const imagePath = path.join(__dirname, "../../passes/logo.png");
-    fs.writeFileSync(imagePath, buffer);
-
-    // Add to pass
     newPass.addBuffer("logo.png", buffer);
     newPass.addBuffer("logo@2x.png", buffer);
   }
