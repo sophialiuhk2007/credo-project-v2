@@ -21,17 +21,15 @@ const DOM = {
   navButtons: {
     home: document.getElementById("homeBtn"),
     templates: document.getElementById("templatesBtn"),
-    issueCredential: document.getElementById("issueBtn"),
-    verifierScreen: document.getElementById("verifierBtn"),
+    issue: document.getElementById("issueBtn"),
   },
   pageTitle: document.getElementById("currentPageTitle"),
   pages: {
     home: document.getElementById("home"),
     templates: document.getElementById("templates"),
+    pkpassDesigner: document.getElementById("pkpassDesigner"), // <-- add this
     templateEditor: document.getElementById("templateEditor"),
-    pkpassDesigner: document.getElementById("pkpassDesigner"),
     issueCredential: document.getElementById("issueCredential"),
-    verifierScreen: document.getElementById("verifierScreen"),
   },
 
   // Templates
@@ -83,14 +81,6 @@ function toCamelCaseWithCap(str) {
       index === 0 ? word.toUpperCase() : word.toUpperCase()
     )
     .replace(/\s+/g, "");
-}
-async function sha256Hex(str) {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(str);
-  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
-  return Array.from(new Uint8Array(hashBuffer))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
 }
 function prettifyLabel(str) {
   return toTitleCase(str.replace(/([A-Z])/g, " $1").replace(/_/g, " "));
@@ -982,16 +972,24 @@ function renderRequiredFields() {
       <span class="required-field-label-box">${toTitleCase(
         field.label || field.path || field
       )}</span>
-      <button type="button" class="btn secondary-btn" id="setFilterBtn${idx}" style="padding: 0.2em 0.8em; font-size: 0.95em; height: 36px;">Set Filter</button>
+      <button type="button" class="btn secondary-btn" id="setFilterBtn${idx}" style="padding: 0.2em 0.8em; font-size: 0.95em;">Set Filter</button>
       <button type="button" data-idx="${idx}" class="btn icon-btn" title="Remove" style="font-size:1.2em;">&times;</button>
     `;
     div.querySelector(`[data-idx="${idx}"]`).onclick = function () {
-      // Remove from requiredFields
       requiredFields.splice(idx, 1);
-      // Rebuild the dropdown with all available fields
-      updateFieldDropdowns(templateSelect.value);
-      // Re-render the required fields list
       renderRequiredFields();
+      // Optionally, re-add the option to the dropdown
+      const dropdown = document.getElementById("requiredFieldsDropdown");
+      if (
+        !Array.from(dropdown.options).some(
+          (opt) => opt.value === (field.path || field)
+        )
+      ) {
+        const opt = document.createElement("option");
+        opt.value = field.path || field;
+        opt.textContent = toTitleCase(field.label || field.path || field);
+        dropdown.appendChild(opt);
+      }
     };
     div.querySelector(`#setFilterBtn${idx}`).onclick = function () {
       showFilterModal(idx);
@@ -999,15 +997,10 @@ function renderRequiredFields() {
     requiredFieldsList.appendChild(div);
   });
 }
-function updateFilterOptionSelect() {
-  const type = document.getElementById("filterType").value;
-  const select = document.getElementById("filterOptionSelect");
-  select.innerHTML = `<option value="">None</option>`;
-  (FILTER_OPTIONS_BY_TYPE[type] || []).forEach((opt) => {
-    select.innerHTML += `<option value="${opt.value}">${opt.label}</option>`;
-  });
-  renderFilterOptionInput("", "");
-}
+
+// --- Field Constant Values ---
+// --- Field Constant Values ---
+
 function showFilterModal(idx) {
   const modal = document.getElementById("filterModal");
   modal.style.display = "flex";
@@ -1127,20 +1120,19 @@ document
       path: [field.path || field],
       ...(field.filter ? { filter: field.filter } : {}),
     }));
-    const idSource = name + purpose + JSON.stringify(fields);
-
-    // Generate robust SHA-256 hashes for IDs
-    const definitionId = await sha256Hex(idSource);
-    const inputDescriptorId = await sha256Hex(idSource + "input");
 
     const presentationExchange = {
       definition: {
-        id: definitionId,
+        id: crypto.randomUUID
+          ? crypto.randomUUID()
+          : Math.random().toString(36).slice(2),
         name,
         purpose,
         input_descriptors: [
           {
-            id: inputDescriptorId,
+            id: crypto.randomUUID
+              ? crypto.randomUUID()
+              : Math.random().toString(36).slice(2),
             constraints: {
               limit_disclosure: "required",
               fields,
@@ -1162,9 +1154,6 @@ document
     document.getElementById("authorizationRequestLink").style.display = "block";
     document.getElementById("authRequestUrl").value =
       data.authorizationRequestUrl || data.invitationUrl || "";
-    if (data.verificationSessionId) {
-      monitorVerificationSession(data.verificationSessionId);
-    }
   });
 const originalNavigateTo = UI.navigateTo.bind(UI);
 UI.navigateTo = function (page) {
@@ -1261,55 +1250,29 @@ const FILTER_OPTIONS_BY_TYPE = {
   null: [],
 };
 
-function updateFieldDropdowns(templateId) {
-  const fields = getTemplateFields(templateId);
-
-  // Separate base fields and template-specific fields
-  const baseFieldPaths = ["$.id", "$.name", "$.description", "$.vct"];
-  const baseFields = fields.filter((f) => baseFieldPaths.includes(f.path));
-  const templateFields = fields.filter((f) => !baseFieldPaths.includes(f.path));
-
-  // Sort both sections alphabetically by label
-  baseFields.sort((a, b) =>
-    toTitleCase(a.label).localeCompare(toTitleCase(b.label))
-  );
-  templateFields.sort((a, b) =>
-    toTitleCase(a.label).localeCompare(toTitleCase(b.label))
-  );
-
-  // Build dropdown HTML with optgroups
-  requiredFieldsDropdown.innerHTML = `<option value="">Select field...</option>`;
-
-  if (baseFields.length) {
-    const baseGroup = document.createElement("optgroup");
-    baseGroup.label = "Common Fields";
-    baseFields.forEach((f) => {
-      const option = document.createElement("option");
-      option.value = f.path;
-      option.textContent = toTitleCase(f.label);
-      option.setAttribute("data-label", toTitleCase(f.label));
-      baseGroup.appendChild(option);
-    });
-    requiredFieldsDropdown.appendChild(baseGroup);
-  }
-
-  if (templateFields.length) {
-    const templateGroup = document.createElement("optgroup");
-    templateGroup.label = "Credential-Specific Fields";
-    templateFields.forEach((f) => {
-      const option = document.createElement("option");
-      option.value = f.path;
-      option.textContent = toTitleCase(f.label);
-      option.setAttribute("data-label", toTitleCase(f.label));
-      templateGroup.appendChild(option);
-    });
-    requiredFieldsDropdown.appendChild(templateGroup);
-  }
+function updateFilterOptionSelect() {
+  const type = document.getElementById("filterType").value;
+  const select = document.getElementById("filterOptionSelect");
+  select.innerHTML = `<option value="">None</option>`;
+  (FILTER_OPTIONS_BY_TYPE[type] || []).forEach((opt) => {
+    select.innerHTML += `<option value="${opt.value}">${opt.label}</option>`;
+  });
+  renderFilterOptionInput("", "");
 }
 document
   .getElementById("filterType")
   .addEventListener("change", updateFilterOptionSelect);
 // --- Update field dropdowns when template changes ---
+function updateFieldDropdowns(templateId) {
+  const fields = getTemplateFields(templateId);
+  // Required Fields
+  requiredFieldsDropdown.innerHTML = `<option value="">Select field...</option>`;
+  fields.forEach((f) => {
+    requiredFieldsDropdown.innerHTML += `<option value="${
+      f.path
+    }">${toTitleCase(f.label)}</option>`;
+  });
+}
 function populatePkpassFieldDropdowns() {
   const fields =
     (AppState.currentTemplate && AppState.currentTemplate.fields) || [];
@@ -1371,40 +1334,18 @@ templateSelect.addEventListener("change", function () {
 
 // --- On page load, initialize dropdowns with default fields ---
 updateFieldDropdowns("");
-function monitorVerificationSession(verificationSessionId) {
-  const poll = async () => {
-    try {
-      const res = await fetch(
-        `/api/verification-session/${verificationSessionId}`
-      );
-      if (!res.ok)
-        throw new Error("Failed to fetch verification session status");
-      const data = await res.json();
 
-      // You may want to update the UI here with the current state
-      console.log("Verification session state:", data.state);
-
-      if (data.state === "ResponseVerified") {
-        alert("Credential successfully verified!");
-        // Optionally, display more info or update the UI
-        return;
-      }
-
-      // If not verified yet, poll again after 2 seconds
-      setTimeout(poll, 2000);
-    } catch (error) {
-      console.error("Error polling verification session:", error);
-      setTimeout(poll, 4000); // Retry after a longer delay on error
-    }
-  };
-  poll();
-}
 // Initialize app
 function initApp() {
   // Set up navigation events
   Object.entries(DOM.navButtons).forEach(([page, btn]) => {
     btn.addEventListener("click", () => {
-      UI.navigateTo(page);
+      // Map "issue" nav button to "issueCredential" page
+      if (page === "issue") {
+        UI.navigateTo("issueCredential");
+      } else {
+        UI.navigateTo(page);
+      }
     });
   });
 
@@ -1592,6 +1533,77 @@ function initApp() {
       e.preventDefault();
       UI.navigateTo("templateEditor");
     });
+  document
+    .getElementById("verifierForm")
+    .addEventListener("submit", async function (e) {
+      e.preventDefault();
+
+      const name = document.getElementById("verificationName").value.trim();
+      const purpose = document
+        .getElementById("verificationPurpose")
+        .value.trim();
+      const requiredFields = document
+        .getElementById("requiredFields")
+        .value.split(",")
+        .map((f) => f.trim())
+        .filter(Boolean);
+      const fieldConstValues = document
+        .getElementById("fieldConstValues")
+        .value.split(",")
+        .map((pair) => pair.split(":").map((s) => s.trim()))
+        .filter(([k, v]) => k && v);
+
+      // Build input_descriptors fields array
+      const fields = requiredFields.map((path, idx) => {
+        const constPair = fieldConstValues.find(
+          ([k]) => path.endsWith(k) || path === "$." + k
+        );
+        return {
+          path: [path],
+          ...(constPair
+            ? { filter: { type: "string", const: constPair[1] } }
+            : {}),
+        };
+      });
+
+      // Build the presentation exchange definition
+      const presentationExchange = {
+        definition: {
+          id: crypto.randomUUID
+            ? crypto.randomUUID()
+            : Math.random().toString(36).slice(2),
+          name,
+          purpose,
+          input_descriptors: [
+            {
+              id: crypto.randomUUID
+                ? crypto.randomUUID()
+                : Math.random().toString(36).slice(2),
+              constraints: {
+                limit_disclosure: "required",
+                fields,
+              },
+            },
+          ],
+        },
+      };
+
+      // Call your backend to create the authorization request
+      const res = await fetch("/oid4vci/create-verification-request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ presentationExchange }),
+      });
+      const data = await res.json();
+
+      // Show the authorization request link
+      document.getElementById("authorizationRequestLink").style.display =
+        "block";
+      document.getElementById("authRequestUrl").value =
+        data.authorizationRequestUrl || data.invitationUrl || "";
+    });
+
+  // Copy button
   document
     .getElementById("copyAuthRequestUrl")
     .addEventListener("click", function () {

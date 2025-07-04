@@ -116,7 +116,28 @@ h6 {
   height: 100vh;
   overflow: hidden;
 }
-
+.modal {
+  display: none;
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.3);
+  z-index: 1000;
+  align-items: center;
+  justify-content: center;
+}
+.modal.active {
+  display: flex !important;
+}
+.modal-content {
+  background: #fff;
+  padding: 2em;
+  border-radius: 8px;
+  max-width: 400px;
+  margin: auto;
+}
 .sidebar {
   width: 250px;
   background-color: var(--white);
@@ -381,6 +402,25 @@ h6 {
   color: #e74c3c;
   margin-left: 0.25em;
 }
+/* Add to styles.css */
+.required-field-label-box {
+  background: #f5f7fa;
+  font-weight: 500;
+  font-size: 1em;
+  min-width: 120px;
+  display: flex;
+  align-items: center;
+  color: #222;
+  width: 75%;
+  padding: 0 var(--space-md);
+  border: 1px solid var(--medium-gray);
+  border-radius: var(--radius-md);
+  transition: border-color var(--transition-fast),
+    box-shadow var(--transition-fast);
+  height: 36px; /* Match button height */
+  line-height: 36px; /* Vertically center text */
+  box-sizing: border-box;
+}
 .optional {
   color: #888;
   margin-left: 0.25em;
@@ -497,7 +537,6 @@ h6 {
 #issueTemplateGrid {
   margin-bottom: 2.5rem; /* Increase as needed */
 }
-
 #pkpassThumbnailPreview {
   display: none;
   width: 96px; /* 2x a typical 48px thumbnail */

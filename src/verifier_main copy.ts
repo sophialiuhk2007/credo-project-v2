@@ -29,9 +29,11 @@ import {
   OpenId4VcVerificationSessionState,
 } from "@credo-ts/openid4vc";
 
-export let verifierAgent: Agent | undefined;
+const verifierRouter = Router();
+const app = express();
+app.use("/oid4vci", verifierRouter);
 
-export const initializeAcmeVerifierAgent = async () => {
+const initializeAcmeVerifierAgent = async () => {
   const config: InitConfig = {
     label: "verifier-agent",
     walletConfig: {
@@ -56,7 +58,8 @@ export const initializeAcmeVerifierAgent = async () => {
         ariesAskar,
       }),
       openId4VcVerifier: new OpenId4VcVerifierModule({
-        baseUrl: "http://127.0.0.1:3000/oid4vci/",
+        baseUrl: "http://127.0.0.1:3003/oid4vci/",
+        router: verifierRouter,
       }),
       basicMessages: new BasicMessagesModule(),
     },
@@ -68,14 +71,23 @@ export const initializeAcmeVerifierAgent = async () => {
 
   await agent.initialize();
 
-  verifierAgent = agent;
   return agent;
 };
 
-export const createAuthorizationRequestAndSession = async (
+const createNewInvitation = async (agent: Agent) => {
+  const outOfBandRecord = await agent.oob.createInvitation();
+
+  return {
+    invitationUrl: outOfBandRecord.outOfBandInvitation.toUrl({
+      domain: "http://localhost:3002",
+    }),
+    outOfBandRecord,
+  };
+};
+
+const createAuthorizationRequestAndSession = async (
   acmeVerifierAgent: Agent,
-  openId4VcVerifier: any,
-  presentationExchange: any
+  openId4VcVerifier: any
 ) => {
   // Create a did:key that we will use for signing OpenID4VP authorization requests
   const verifierDidResult =
@@ -101,21 +113,59 @@ export const createAuthorizationRequestAndSession = async (
           method: "did",
         },
         // Add DIF presentation exchange data
-        presentationExchange,
+        presentationExchange: {
+          definition: {
+            id: "9ed05140-b33b-445e-a0f0-9a23aa501868",
+            name: "Employee Verification",
+            purpose:
+              "We need to verify your employee status to grant access to the employee portal",
+            input_descriptors: [
+              {
+                id: "9c98fb43-6fd5-49b1-8dcc-69bd2a378f23",
+                constraints: {
+                  // Require limit disclosure
+                  limit_disclosure: "required",
+                  fields: [
+                    {
+                      filter: {
+                        type: "string",
+                        const: "AcmeCorpEmployee",
+                      },
+                      path: ["$.vct"],
+                    },
+                  ],
+                },
+              },
+            ],
+          },
+        },
       }
     );
 
   return { authorizationRequest, verificationSession };
 };
 
-export function monitorVerificationSession(
-  agent: Agent,
-  verificationSessionId: string
-) {
-  agent.events.on<OpenId4VcVerificationSessionStateChangedEvent>(
+const run = async () => {
+  console.log("Initializing Acme Verifier agent...");
+  const acmeVerifierAgent = await initializeAcmeVerifierAgent();
+  const openId4VcVerifier =
+    await acmeVerifierAgent.modules.openId4VcVerifier.createVerifier({});
+  const { authorizationRequest, verificationSession } =
+    await createAuthorizationRequestAndSession(
+      acmeVerifierAgent,
+      openId4VcVerifier
+    );
+
+  console.log(
+    "Created OpenID4VC authorization request",
+    JSON.stringify(authorizationRequest, null, 2)
+  );
+
+  // Listen for verification session state changes
+  acmeVerifierAgent.events.on<OpenId4VcVerificationSessionStateChangedEvent>(
     OpenId4VcVerifierEvents.VerificationSessionStateChanged,
     async (event) => {
-      if (event.payload.verificationSession.id === verificationSessionId) {
+      if (event.payload.verificationSession.id === verificationSession.id) {
         console.log(
           "Verification session state changed to ",
           event.payload.verificationSession.state
@@ -127,8 +177,8 @@ export function monitorVerificationSession(
         OpenId4VcVerificationSessionState.ResponseVerified
       ) {
         const verifiedAuthorizationResponse =
-          await agent.modules.openId4VcVerifier.getVerifiedAuthorizationResponse(
-            verificationSessionId
+          await acmeVerifierAgent.modules.openId4VcVerifier.getVerifiedAuthorizationResponse(
+            verificationSession.id
           );
         console.log(
           "Successfully verified presentation.",
@@ -140,4 +190,9 @@ export function monitorVerificationSession(
       }
     }
   );
-}
+  app.listen(3003);
+};
+
+export default run;
+
+void run();

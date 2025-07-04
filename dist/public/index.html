@@ -34,6 +34,11 @@
                 ><i class="fas fa-certificate"></i> Issue Credentials</a
               >
             </li>
+            <li>
+              <a href="#" id="verifierBtn" class="nav-item"
+                ><i class="fas fa-square-check"></i> Verify Credential</a
+              >
+            </li>
           </ul>
         </nav>
         <div class="sidebar-footer">
@@ -187,29 +192,32 @@
           <section id="pkpassDesigner" class="page">
             <div class="breadcrumb">
               <a href="#" id="backToTemplateEditor">Back to Template Editor</a>
-              /
               <span>Apple Wallet Pass Design</span>
             </div>
             <form id="pkpassForm" class="card-form">
               <div class="pkpass-designer-flex">
                 <!-- Left: Inputs -->
+
                 <div class="pkpass-designer-inputs">
                   <div class="form-section">
                     <h3>Design Your Apple Wallet Pass</h3>
+
+                    <div class="form-group">
+                      <label for="pkpassDescription"
+                        >Display Name in Apple Wallet</label
+                      >
+                      <input
+                        type="text"
+                        id="pkpassDescription"
+                        placeholder="Description"
+                      />
+                    </div>
                     <div class="form-group">
                       <label for="pkpassLogoText">Logo Text</label>
                       <input
                         type="text"
                         id="pkpassLogoText"
                         placeholder="Logo Text"
-                      />
-                    </div>
-                    <div class="form-group">
-                      <label for="pkpassDescription">Description</label>
-                      <input
-                        type="text"
-                        id="pkpassDescription"
-                        placeholder="Description"
                       />
                     </div>
                     <div class="form-group">
@@ -415,6 +423,82 @@
               </div>
             </div>
           </section>
+          <section id="verifierScreen" class="page">
+            <form id="verifierForm" class="card-form">
+              <h3>Verify a Credential</h3>
+              <div class="form-group">
+                <label for="verificationName">Verification Request Name</label>
+                <input
+                  type="text"
+                  id="verificationName"
+                  placeholder="e.g. Employee Verification"
+                  required
+                />
+              </div>
+              <div class="form-group">
+                <label for="verificationPurpose">Purpose</label>
+                <input
+                  type="text"
+                  id="verificationPurpose"
+                  placeholder="e.g. We need to verify your employee status..."
+                  required
+                />
+              </div>
+              <div class="form-group">
+                <label for="verifierTemplateSelect"
+                  >Credential Template (optional)</label
+                >
+                <select id="verifierTemplateSelect">
+                  <option value="">Any/All Credentials</option>
+                  <!-- Templates will be loaded here -->
+                </select>
+              </div>
+              <!-- Replace the Required Fields to Disclose input group with this: -->
+              <div class="form-group">
+                <label>Required Fields to Disclose</label>
+                <div style="display: flex; gap: 0.5em; align-items: center">
+                  <select id="requiredFieldsDropdown">
+                    <option value="">Select field...</option>
+                    <option value="$.vct">vct</option>
+                    <option value="$.email">email</option>
+                    <option value="$.name">name</option>
+                    <option value="$.employeeId">employeeId</option>
+                    <!-- Add more options as needed -->
+                  </select>
+                  <button
+                    type="button"
+                    id="addRequiredFieldBtn"
+                    class="btn icon-btn"
+                    style="font-size: 1.3em; padding: 0 0.7em"
+                  >
+                    +
+                  </button>
+                </div>
+                <div id="requiredFieldsList" style="margin-top: 0.5em"></div>
+              </div>
+
+              <button
+                type="submit"
+                id="createVerificationRequestBtn"
+                class="btn primary-btn"
+              >
+                Create Verification Request
+              </button>
+            </form>
+            <div
+              id="authorizationRequestLink"
+              style="margin-top: 1em; display: none"
+            >
+              <label>Authorization Request Link:</label>
+              <input
+                type="text"
+                id="authRequestUrl"
+                readonly
+                style="width: 100%"
+              />
+              <button id="copyAuthRequestUrl">Copy</button>
+            </div>
+          </section>
         </div>
       </main>
     </div>
@@ -481,6 +565,64 @@
         </div>
       </div>
     </template>
+
+    <div
+      id="filterModal"
+      class="modal"
+      style="
+        display: none;
+        position: fixed;
+        left: 0;
+        top: 0;
+        width: 100vw;
+        height: 100vh;
+        background: rgba(0, 0, 0, 0.3);
+        z-index: 1000;
+        align-items: center;
+        justify-content: center;
+      "
+    >
+      <div
+        class="modal-content"
+        style="
+          background: #fff;
+          padding: 2em;
+          border-radius: 8px;
+          max-width: 400px;
+          margin: auto;
+        "
+      >
+        <h4>Set Filter for Field</h4>
+        <label
+          >Type <span class="required">*</span>:
+          <select id="filterType" required>
+            <option value="">Select type...</option>
+            <option value="string">string – Text values</option>
+            <option value="number">number – Numeric (float/integer)</option>
+            <option value="integer">integer – Whole numbers</option>
+            <option value="boolean">boolean – True/false</option>
+            <option value="array">array – List of items</option>
+            <option value="object">object – JSON object</option>
+          </select>
+        </label>
+        <label for="filterOptionSelect" style="margin-top: 1em"
+          >Additional Filter:</label
+        >
+        <select id="filterOptionSelect">
+          <option value="">None</option>
+          <!-- Options will be set by JS -->
+        </select>
+        <div id="filterOptionInput" style="margin-top: 0.5em"></div>
+        <div style="margin-top: 1em; display: flex; gap: 1em">
+          <button id="saveFilterBtn" type="button" class="btn primary-btn">
+            Save
+          </button>
+          <button id="closeFilterBtn" type="button" class="btn secondary-btn">
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
 
     <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
     <script src="https://unpkg.com/browser-image-compression/dist/browser-image-compression.js"></script>

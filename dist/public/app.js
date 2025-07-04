@@ -21,15 +21,17 @@ const DOM = {
   navButtons: {
     home: document.getElementById("homeBtn"),
     templates: document.getElementById("templatesBtn"),
-    issue: document.getElementById("issueBtn"),
+    issueCredential: document.getElementById("issueBtn"),
+    verifierScreen: document.getElementById("verifierBtn"),
   },
   pageTitle: document.getElementById("currentPageTitle"),
   pages: {
     home: document.getElementById("home"),
     templates: document.getElementById("templates"),
-    pkpassDesigner: document.getElementById("pkpassDesigner"), // <-- add this
     templateEditor: document.getElementById("templateEditor"),
+    pkpassDesigner: document.getElementById("pkpassDesigner"),
     issueCredential: document.getElementById("issueCredential"),
+    verifierScreen: document.getElementById("verifierScreen"),
   },
 
   // Templates
@@ -81,6 +83,14 @@ function toCamelCaseWithCap(str) {
       index === 0 ? word.toUpperCase() : word.toUpperCase()
     )
     .replace(/\s+/g, "");
+}
+async function sha256Hex(str) {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(str);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(hashBuffer))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
 }
 function prettifyLabel(str) {
   return toTitleCase(str.replace(/([A-Z])/g, " $1").replace(/_/g, " "));
@@ -813,15 +823,24 @@ const UI = {
     }
   },
 
-  copyCredentialUrl() {
-    DOM.credentialOfferUrl.select();
-    document.execCommand("copy");
+  async copyCredentialUrl() {
+    try {
+      await navigator.clipboard.writeText(DOM.credentialOfferUrl.value);
 
-    // Show feedback
-    DOM.copyUrlBtn.textContent = "Copied!";
-    setTimeout(() => {
-      DOM.copyUrlBtn.innerHTML = '<i class="fas fa-copy"></i>';
-    }, 2000);
+      // Show feedback
+      DOM.copyUrlBtn.textContent = "Copied!";
+      setTimeout(() => {
+        DOM.copyUrlBtn.innerHTML = '<i class="fas fa-copy"></i>';
+      }, 2000);
+    } catch (err) {
+      // Fallback for browsers that do not support navigator.clipboard
+      DOM.credentialOfferUrl.select();
+      document.execCommand("copy");
+      DOM.copyUrlBtn.textContent = "Copied!";
+      setTimeout(() => {
+        DOM.copyUrlBtn.innerHTML = '<i class="fas fa-copy"></i>';
+      }, 2000);
+    }
   },
 
   resetIssuanceFlow() {
@@ -937,6 +956,360 @@ const UI = {
     });
   },
 };
+// --- Required Fields to Disclose ---
+const requiredFields = [];
+const requiredFieldsList = document.getElementById("requiredFieldsList");
+document.getElementById("addRequiredFieldBtn").addEventListener("click", () => {
+  const dropdown = document.getElementById("requiredFieldsDropdown");
+  let value = dropdown.value;
+  if (value && !requiredFields.includes(value)) {
+    requiredFields.push(value);
+    // Remove the selected option from the dropdown
+    dropdown.querySelector(`option[value="${value}"]`).remove();
+    renderRequiredFields();
+    dropdown.value = "";
+  }
+});
+function renderRequiredFields() {
+  requiredFieldsList.innerHTML = "";
+  requiredFields.forEach((field, idx) => {
+    const div = document.createElement("div");
+    div.style.display = "flex";
+    div.style.alignItems = "center";
+    div.style.gap = "0.5em";
+    div.style.marginBottom = "0.5em";
+    div.innerHTML = `
+      <span class="required-field-label-box">${toTitleCase(
+        field.label || field.path || field
+      )}</span>
+      <button type="button" class="btn secondary-btn" id="setFilterBtn${idx}" style="padding: 0.2em 0.8em; font-size: 0.95em; height: 36px;">Set Filter</button>
+      <button type="button" data-idx="${idx}" class="btn icon-btn" title="Remove" style="font-size:1.2em;">&times;</button>
+    `;
+    div.querySelector(`[data-idx="${idx}"]`).onclick = function () {
+      // Remove from requiredFields
+      requiredFields.splice(idx, 1);
+      // Rebuild the dropdown with all available fields
+      updateFieldDropdowns(templateSelect.value);
+      // Re-render the required fields list
+      renderRequiredFields();
+    };
+    div.querySelector(`#setFilterBtn${idx}`).onclick = function () {
+      showFilterModal(idx);
+    };
+    requiredFieldsList.appendChild(div);
+  });
+}
+function updateFilterOptionSelect() {
+  const type = document.getElementById("filterType").value;
+  const select = document.getElementById("filterOptionSelect");
+  select.innerHTML = `<option value="">None</option>`;
+  (FILTER_OPTIONS_BY_TYPE[type] || []).forEach((opt) => {
+    select.innerHTML += `<option value="${opt.value}">${opt.label}</option>`;
+  });
+  renderFilterOptionInput("", "");
+}
+function showFilterModal(idx) {
+  const modal = document.getElementById("filterModal");
+  modal.style.display = "flex";
+  const field = requiredFields[idx];
+
+  // Pre-fill type and filter option if present
+  document.getElementById("filterType").value = field.filter?.type || "";
+
+  // Determine which filter option is set
+  let selectedOption = "";
+  let filterValue = "";
+  if (field.filter) {
+    for (const key of [
+      "const",
+      "enum",
+      "pattern",
+      "minimum",
+      "maximum",
+      "format",
+    ]) {
+      if (field.filter[key] !== undefined) {
+        selectedOption = key;
+        filterValue = field.filter[key];
+        break;
+      }
+    }
+  }
+  document.getElementById("filterOptionSelect").value = selectedOption;
+  renderFilterOptionInput(selectedOption, filterValue);
+
+  // Change input when dropdown changes
+  document.getElementById("filterOptionSelect").onchange = function () {
+    renderFilterOptionInput(this.value, "");
+  };
+
+  document.getElementById("saveFilterBtn").onclick = function () {
+    const type = document.getElementById("filterType").value;
+    if (!type) {
+      alert("Type is required.");
+      return;
+    }
+    const filter = { type };
+    const option = document.getElementById("filterOptionSelect").value;
+    const input = document.getElementById("filterOptionValue");
+    if (option && input) {
+      let val = input.value;
+      if (option === "enum" || option === "not_enum") {
+        val = val
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean);
+        if (val.length === 0)
+          return alert("Enum must have at least one value.");
+      }
+      if (
+        ["minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum"].includes(
+          option
+        )
+      ) {
+        val = Number(val);
+        if (isNaN(val)) return alert("Value must be a number.");
+      }
+      if (option.startsWith("not_")) {
+        // Wrap in "not"
+        const realKey = option.replace("not_", "");
+        filter.not = { [realKey]: val };
+      } else if (val !== "" && val !== undefined) {
+        filter[option] = val;
+      }
+    }
+    requiredFields[idx] = {
+      ...(typeof field === "string" ? { path: field } : field),
+      filter,
+    };
+    modal.style.display = "none";
+    renderRequiredFields();
+  };
+  document.getElementById("closeFilterBtn").onclick = function () {
+    modal.style.display = "none";
+  };
+}
+
+function renderFilterOptionInput(option, value) {
+  const container = document.getElementById("filterOptionInput");
+  if (!option) {
+    container.innerHTML = "";
+    return;
+  }
+  let placeholder = "";
+  let inputType = "text";
+  if (option === "enum" || option === "not_enum")
+    placeholder = "Comma separated values";
+  if (
+    ["minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum"].includes(
+      option
+    )
+  )
+    inputType = "number";
+  if (option === "const" || option === "not_const") placeholder = "Value";
+  container.innerHTML = `<input id="filterOptionValue" type="${inputType}" placeholder="${placeholder}" value="${
+    (option === "enum" || option === "not_enum") && Array.isArray(value)
+      ? value.join(", ")
+      : value || ""
+  }">`;
+}
+// --- On form submit, use the arrays instead of parsing text ---
+document
+  .getElementById("verifierForm")
+  .addEventListener("submit", async function (e) {
+    e.preventDefault();
+
+    const name = document.getElementById("verificationName").value.trim();
+    const purpose = document.getElementById("verificationPurpose").value.trim();
+
+    // Use the arrays directly
+    const fields = requiredFields.map((field) => ({
+      path: [field.path || field],
+      ...(field.filter ? { filter: field.filter } : {}),
+    }));
+    const idSource = name + purpose + JSON.stringify(fields);
+
+    // Generate robust SHA-256 hashes for IDs
+    const definitionId = await sha256Hex(idSource);
+    const inputDescriptorId = await sha256Hex(idSource + "input");
+
+    const presentationExchange = {
+      definition: {
+        id: definitionId,
+        name,
+        purpose,
+        input_descriptors: [
+          {
+            id: inputDescriptorId,
+            constraints: {
+              limit_disclosure: "required",
+              fields,
+            },
+          },
+        ],
+      },
+    };
+
+    // Call your backend to create the authorization request
+    const res = await fetch("/create-verification-request", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ presentationExchange }),
+    });
+    const data = await res.json();
+
+    // Show the authorization request link
+    document.getElementById("authorizationRequestLink").style.display = "block";
+    document.getElementById("authRequestUrl").value =
+      data.authorizationRequestUrl || data.invitationUrl || "";
+    if (data.verificationSessionId) {
+      monitorVerificationSession(data.verificationSessionId);
+    }
+  });
+const originalNavigateTo = UI.navigateTo.bind(UI);
+UI.navigateTo = function (page) {
+  // If leaving pkpassDesigner, reset its fields
+  if (AppState.currentPage === "pkpassDesigner" && page !== "pkpassDesigner") {
+    resetPkpassDesignerFields();
+  }
+  originalNavigateTo(page);
+};
+let pkpassThumbnailBase64 = "";
+let pkpassLogoBase64 = "";
+
+// --- Fetch templates and populate the template selector ---
+let templates = [];
+const templateSelect = document.getElementById("verifierTemplateSelect");
+const requiredFieldsDropdown = document.getElementById(
+  "requiredFieldsDropdown"
+);
+const constFieldDropdown = document.getElementById("constFieldDropdown");
+
+async function loadTemplatesForVerifier() {
+  const res = await fetch("/api/templates");
+  templates = await res.json();
+  // Populate template selector
+  templateSelect.innerHTML = `<option value="">Any/All Credentials</option>`;
+  templates.forEach((tpl) => {
+    templateSelect.innerHTML += `<option value="${tpl.id}">${tpl.name}</option>`;
+  });
+}
+loadTemplatesForVerifier();
+
+// --- Helper to get fields from a template ---
+function getTemplateFields(templateId) {
+  // Always include these base fields
+  const baseFields = [
+    { path: "$.id", label: "id" },
+    { path: "$.name", label: "name" },
+    { path: "$.description", label: "description" },
+    { path: "$.vct", label: "vct" },
+  ];
+
+  if (!templateId) return baseFields;
+
+  const tpl = templates.find((t) => t.id === templateId);
+  if (!tpl || !tpl.fields) return baseFields;
+
+  // Map template fields to { path, label }
+  const templateFields = tpl.fields.map((f) => ({
+    path: "$." + f.name,
+    label: f.name,
+  }));
+
+  // Merge, avoiding duplicates by label
+  const allFields = [...baseFields];
+  templateFields.forEach((f) => {
+    if (!allFields.some((bf) => bf.label === f.label)) {
+      allFields.push(f);
+    }
+  });
+  return allFields;
+}
+const FILTER_OPTIONS_BY_TYPE = {
+  string: [
+    { value: "const", label: "Const (== value)" },
+    { value: "not_const", label: "Not Const (!= value)" },
+    { value: "enum", label: "Enum (in set)" },
+    { value: "not_enum", label: "Not Enum (not in set)" },
+  ],
+  number: [
+    { value: "const", label: "Const (== value)" },
+    { value: "not_const", label: "Not Const (!= value)" },
+    { value: "minimum", label: "Minimum (≥ value)" },
+    { value: "maximum", label: "Maximum (≤ value)" },
+    { value: "exclusiveMinimum", label: "Exclusive Minimum (> value)" },
+    { value: "exclusiveMaximum", label: "Exclusive Maximum (< value)" },
+  ],
+  integer: [
+    { value: "const", label: "Const (== value)" },
+    { value: "not_const", label: "Not Const (!= value)" },
+    { value: "minimum", label: "Minimum (≥ value)" },
+    { value: "maximum", label: "Maximum (≤ value)" },
+    { value: "exclusiveMinimum", label: "Exclusive Minimum (> value)" },
+    { value: "exclusiveMaximum", label: "Exclusive Maximum (< value)" },
+  ],
+  boolean: [
+    { value: "const", label: "Const (== true/false)" },
+    { value: "not_const", label: "Not Const (!= true/false)" },
+  ],
+  array: [
+    { value: "enum", label: "Enum (contains value)" },
+    { value: "not_enum", label: "Not Enum (not contains value)" },
+  ],
+  object: [],
+  null: [],
+};
+
+function updateFieldDropdowns(templateId) {
+  const fields = getTemplateFields(templateId);
+
+  // Separate base fields and template-specific fields
+  const baseFieldPaths = ["$.id", "$.name", "$.description", "$.vct"];
+  const baseFields = fields.filter((f) => baseFieldPaths.includes(f.path));
+  const templateFields = fields.filter((f) => !baseFieldPaths.includes(f.path));
+
+  // Sort both sections alphabetically by label
+  baseFields.sort((a, b) =>
+    toTitleCase(a.label).localeCompare(toTitleCase(b.label))
+  );
+  templateFields.sort((a, b) =>
+    toTitleCase(a.label).localeCompare(toTitleCase(b.label))
+  );
+
+  // Build dropdown HTML with optgroups
+  requiredFieldsDropdown.innerHTML = `<option value="">Select field...</option>`;
+
+  if (baseFields.length) {
+    const baseGroup = document.createElement("optgroup");
+    baseGroup.label = "Common Fields";
+    baseFields.forEach((f) => {
+      const option = document.createElement("option");
+      option.value = f.path;
+      option.textContent = toTitleCase(f.label);
+      option.setAttribute("data-label", toTitleCase(f.label));
+      baseGroup.appendChild(option);
+    });
+    requiredFieldsDropdown.appendChild(baseGroup);
+  }
+
+  if (templateFields.length) {
+    const templateGroup = document.createElement("optgroup");
+    templateGroup.label = "Credential-Specific Fields";
+    templateFields.forEach((f) => {
+      const option = document.createElement("option");
+      option.value = f.path;
+      option.textContent = toTitleCase(f.label);
+      option.setAttribute("data-label", toTitleCase(f.label));
+      templateGroup.appendChild(option);
+    });
+    requiredFieldsDropdown.appendChild(templateGroup);
+  }
+}
+document
+  .getElementById("filterType")
+  .addEventListener("change", updateFilterOptionSelect);
+// --- Update field dropdowns when template changes ---
 function populatePkpassFieldDropdowns() {
   const fields =
     (AppState.currentTemplate && AppState.currentTemplate.fields) || [];
@@ -961,17 +1334,77 @@ function populatePkpassFieldDropdowns() {
       select.innerHTML = `<option value="">-- Select Template Field --</option>${options}`;
   });
 }
+// Add this function to reset all pkpass designer fields
+function resetPkpassDesignerFields() {
+  pkpassThumbnailBase64 = "";
+  pkpassLogoBase64 = "";
+  const pkpassThumbnailPreview = document.getElementById(
+    "pkpassThumbnailPreview"
+  );
+  if (pkpassThumbnailPreview) {
+    pkpassThumbnailPreview.src = "";
+    pkpassThumbnailPreview.style.display = "none";
+  }
+  const pkpassLogoPreview = document.getElementById("pkpassLogoPreview");
+  if (pkpassLogoPreview) {
+    pkpassLogoPreview.src = "";
+    pkpassLogoPreview.style.display = "none";
+  }
+  const pkpassThumbnailInput = document.getElementById("pkpassThumbnail");
+  if (pkpassThumbnailInput) pkpassThumbnailInput.value = "";
+  const pkpassLogoInput = document.getElementById("pkpassLogo");
+  if (pkpassLogoInput) pkpassLogoInput.value = "";
+  document.getElementById("pkpassBackgroundColor").value = "#ffffff";
+  document.getElementById("pkpassTextColor").value = "#000000";
+  document.getElementById("pkpassLogoText").value = "";
+  document.getElementById("pkpassDescription").value = "";
+  document.getElementById("pkpassFieldsContainer").innerHTML = "";
+}
+
+// --- Listen for template selection changes ---
+templateSelect.addEventListener("change", function () {
+  updateFieldDropdowns(this.value);
+  // Optionally clear any previously added required/const fields
+  requiredFields.length = 0;
+  renderRequiredFields();
+});
+
+// --- On page load, initialize dropdowns with default fields ---
+updateFieldDropdowns("");
+function monitorVerificationSession(verificationSessionId) {
+  const poll = async () => {
+    try {
+      const res = await fetch(
+        `/api/verification-session/${verificationSessionId}`
+      );
+      if (!res.ok)
+        throw new Error("Failed to fetch verification session status");
+      const data = await res.json();
+
+      // You may want to update the UI here with the current state
+      console.log("Verification session state:", data.state);
+
+      if (data.state === "ResponseVerified") {
+        alert("Credential successfully verified!");
+        // Optionally, display more info or update the UI
+        return;
+      }
+
+      // If not verified yet, poll again after 2 seconds
+      setTimeout(poll, 2000);
+    } catch (error) {
+      console.error("Error polling verification session:", error);
+      setTimeout(poll, 4000); // Retry after a longer delay on error
+    }
+  };
+  poll();
+}
 // Initialize app
 function initApp() {
   // Set up navigation events
   Object.entries(DOM.navButtons).forEach(([page, btn]) => {
     btn.addEventListener("click", () => {
-      // Map "issue" nav button to "issueCredential" page
-      if (page === "issue") {
-        UI.navigateTo("issueCredential");
-      } else {
-        UI.navigateTo(page);
-      }
+      UI.navigateTo(page);
     });
   });
 
@@ -1095,9 +1528,11 @@ function initApp() {
       const secondary = pkpassFields.filter((f) => f.type === "secondary");
       const auxiliary = pkpassFields.filter((f) => f.type === "auxiliary");
 
+      // Only reset base64 values if a new pkpass was actually designed (not just navigating away)
+      // If editing, preserve the previous base64 values unless the user changed the image
       const pkpassData = {
-        thumbnailBase64: pkpassThumbnailBase64, // <-- use the base64 string
-        logoBase64: pkpassLogoBase64, // <-- use the base64 string
+        thumbnailBase64: pkpassThumbnailBase64,
+        logoBase64: pkpassLogoBase64,
         primary,
         secondary,
         auxiliary,
@@ -1106,13 +1541,46 @@ function initApp() {
         logoText: document.getElementById("pkpassLogoText").value,
         description: document.getElementById("pkpassDescription").value,
       };
+
       if (AppState.currentTemplate) {
         AppState.currentTemplate.pkpass = pkpassData;
         await API.saveTemplate(AppState.currentTemplate);
       }
 
+      // --- Reset pkpass designer fields after submit ---
+      // Only reset if not editing an existing pkpass (i.e., if AppState.currentTemplate.pkpass was undefined before)
+      if (
+        !AppState.currentTemplate ||
+        !AppState.currentTemplate.pkpass ||
+        (!AppState.currentTemplate.pkpass.thumbnailBase64 &&
+          !AppState.currentTemplate.pkpass.logoBase64)
+      ) {
+        pkpassThumbnailBase64 = "";
+        pkpassLogoBase64 = "";
+        const pkpassThumbnailPreview = document.getElementById(
+          "pkpassThumbnailPreview"
+        );
+        if (pkpassThumbnailPreview) {
+          pkpassThumbnailPreview.src = "";
+          pkpassThumbnailPreview.style.display = "none";
+        }
+        const pkpassLogoPreview = document.getElementById("pkpassLogoPreview");
+        if (pkpassLogoPreview) {
+          pkpassLogoPreview.src = "";
+          pkpassLogoPreview.style.display = "none";
+        }
+        document.getElementById("pkpassThumbnail").value = "";
+        document.getElementById("pkpassLogo").value = "";
+      }
+      document.getElementById("pkpassBackgroundColor").value = "#ffffff";
+      document.getElementById("pkpassTextColor").value = "#000000";
+      document.getElementById("pkpassLogoText").value = "";
+      document.getElementById("pkpassDescription").value = "";
+      document.getElementById("pkpassFieldsContainer").innerHTML = "";
+
       UI.navigateTo("templates");
     });
+
   document
     .getElementById("pkpassBackBtn")
     .addEventListener("click", function () {
@@ -1124,7 +1592,13 @@ function initApp() {
       e.preventDefault();
       UI.navigateTo("templateEditor");
     });
-
+  document
+    .getElementById("copyAuthRequestUrl")
+    .addEventListener("click", function () {
+      const input = document.getElementById("authRequestUrl");
+      input.select();
+      document.execCommand("copy");
+    });
   document
     .getElementById("addPkpassFieldBtn")
     .addEventListener("click", function () {
