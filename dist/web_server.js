@@ -14,7 +14,10 @@ const dotenv_1 = __importDefault(require("dotenv"));
 const generatePkpass_1 = require("./utils/generatePkpass"); // <-- create this utility
 const verifier_main_1 = require("./verifier_main");
 const openid4vc_1 = require("@credo-ts/openid4vc");
+const verifier_main_2 = require("./verifier_main");
+const verifier_main_3 = require("./verifier_main");
 dotenv_1.default.config();
+const verificationResults = {};
 const PKPASS = require("passkit-generator").PKPass;
 // Create Express app
 const app = (0, express_1.default)();
@@ -24,7 +27,7 @@ let openId4VcVerifier;
 app.use(express_1.default.json({ limit: "5mb" })); // <-- Increase as needed
 app.use(express_1.default.urlencoded({ limit: "5mb", extended: true })); // For form data
 app.use(express_1.default.static(path_1.default.join(__dirname, "../public")));
-app.use("/oid4vci", issuer_config_1.issuerRouter); // <-- add this before your routes
+app.use("/oid4vci/issuer", issuer_config_1.issuerRouter); // <-- add this before your routes
 // Routes
 app.get("/", (req, res) => {
     return Promise.resolve(res.sendFile(path_1.default.join(__dirname, "../public", "index.html")));
@@ -127,6 +130,20 @@ app.put("/api/templates/:id", async (req, res) => {
     await (0, issuer_main_1.initializeIssuer)();
     return Promise.resolve(res.json(template));
 });
+(0, verifier_main_3.setStoreVerificationResult)((sessionId, result) => {
+    verificationResults[sessionId] = result;
+});
+app.get("/api/verification-result/:sessionId", (req, res) => {
+    const sessionId = req.params.sessionId;
+    console.log("API request for verification result:", sessionId);
+    const result = verificationResults[sessionId];
+    if (result) {
+        res.json(result);
+    }
+    else {
+        res.status(404).json({ error: "Result not found" });
+    }
+});
 app.post("/create-verification-request", async (req, res) => {
     try {
         const { presentationExchange } = req.body;
@@ -141,6 +158,7 @@ app.post("/create-verification-request", async (req, res) => {
                 .json({ error: "Verifier agent not initialized." });
         }
         const { authorizationRequest, verificationSession } = await (0, verifier_main_1.createAuthorizationRequestAndSession)(verifier_main_1.verifierAgent, openId4VcVerifier, presentationExchange);
+        (0, verifier_main_2.monitorVerificationSession)(verifier_main_1.verifierAgent, verificationSession.id);
         res.json({
             authorizationRequestUrl: authorizationRequest,
             verificationSessionId: verificationSession.id,
@@ -160,15 +178,8 @@ const startServer = async () => {
         await (0, issuer_main_1.initializeIssuer)();
         await (0, verifier_main_1.initializeAcmeVerifierAgent)();
         openId4VcVerifier =
-            await verifier_main_1.verifierAgent.modules.openId4VcVerifier.createVerifier({}); // Try to use the specified port or find an available one
-        if (verifier_main_1.verifierAgent) {
-            // Mount the OpenID4VC verifier router
-            const openId4VcVerifierRouter = verifier_main_1.verifierAgent.modules.openId4VcVerifier.getRouter();
-            app.use("/oid4vci", openId4VcVerifierRouter);
-        }
-        else {
-            throw new Error("verifierAgent is undefined");
-        }
+            await verifier_main_1.verifierAgent.modules.openId4VcVerifier.createVerifier({});
+        app.use("/oid4vci/verifier", verifier_main_2.verifierRouter); // Verifier endpoints
         const preferredPort = parseInt(process.env.PORT || "3000", 10);
         const port = await (0, port_utils_1.findAvailablePort)(preferredPort);
         const server = app.listen(port, () => {

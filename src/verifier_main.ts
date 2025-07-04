@@ -29,6 +29,16 @@ import {
   OpenId4VcVerificationSessionState,
 } from "@credo-ts/openid4vc";
 
+export const verifierRouter = Router();
+let storeVerificationResult: (
+  sessionId: string,
+  result: any
+) => void = () => {};
+
+export function setStoreVerificationResult(fn: typeof storeVerificationResult) {
+  storeVerificationResult = fn;
+}
+
 export let verifierAgent: Agent | undefined;
 
 export const initializeAcmeVerifierAgent = async () => {
@@ -56,7 +66,8 @@ export const initializeAcmeVerifierAgent = async () => {
         ariesAskar,
       }),
       openId4VcVerifier: new OpenId4VcVerifierModule({
-        baseUrl: "http://127.0.0.1:3000/oid4vci/",
+        baseUrl: "http://127.0.0.1:3000/oid4vci/verifier/",
+        router: verifierRouter, // <-- this is required!
       }),
       basicMessages: new BasicMessagesModule(),
     },
@@ -116,27 +127,25 @@ export function monitorVerificationSession(
     OpenId4VcVerifierEvents.VerificationSessionStateChanged,
     async (event) => {
       if (event.payload.verificationSession.id === verificationSessionId) {
-        console.log(
-          "Verification session state changed to ",
-          event.payload.verificationSession.state
-        );
-      }
-
-      if (
-        event.payload.verificationSession.state ===
-        OpenId4VcVerificationSessionState.ResponseVerified
-      ) {
-        const verifiedAuthorizationResponse =
-          await agent.modules.openId4VcVerifier.getVerifiedAuthorizationResponse(
-            verificationSessionId
+        if (
+          event.payload.verificationSession.state ===
+          OpenId4VcVerificationSessionState.ResponseVerified
+        ) {
+          const verifiedAuthorizationResponse =
+            await agent.modules.openId4VcVerifier.getVerifiedAuthorizationResponse(
+              verificationSessionId
+            );
+          storeVerificationResult(
+            verificationSessionId,
+            verifiedAuthorizationResponse
           );
-        console.log(
-          "Successfully verified presentation.",
-          JSON.stringify(verifiedAuthorizationResponse, null, 2)
-        );
-
-        console.log("Exiting...");
-        process.exit();
+          console.log(
+            "Successfully verified presentation.",
+            JSON.stringify(verifiedAuthorizationResponse, null, 2)
+          );
+          console.log("Exiting...");
+          // process.exit();
+        }
       }
     }
   );

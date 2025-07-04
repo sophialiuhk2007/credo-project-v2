@@ -28,7 +28,6 @@ import {
   OpenId4VcVerificationSessionStateChangedEvent,
   OpenId4VcVerificationSessionState,
 } from "@credo-ts/openid4vc";
-
 const verifierRouter = Router();
 const app = express();
 app.use("/oid4vci", verifierRouter);

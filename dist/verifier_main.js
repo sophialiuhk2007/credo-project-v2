@@ -1,12 +1,19 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.createAuthorizationRequestAndSession = exports.initializeAcmeVerifierAgent = exports.verifierAgent = void 0;
+exports.createAuthorizationRequestAndSession = exports.initializeAcmeVerifierAgent = exports.verifierAgent = exports.verifierRouter = void 0;
+exports.setStoreVerificationResult = setStoreVerificationResult;
 exports.monitorVerificationSession = monitorVerificationSession;
 const core_1 = require("@credo-ts/core");
 const node_1 = require("@credo-ts/node");
 const askar_1 = require("@credo-ts/askar");
 const aries_askar_nodejs_1 = require("@hyperledger/aries-askar-nodejs");
+const express_1 = require("express");
 const openid4vc_1 = require("@credo-ts/openid4vc");
+exports.verifierRouter = (0, express_1.Router)();
+let storeVerificationResult = () => { };
+function setStoreVerificationResult(fn) {
+    storeVerificationResult = fn;
+}
 const initializeAcmeVerifierAgent = async () => {
     const config = {
         label: "verifier-agent",
@@ -15,7 +22,7 @@ const initializeAcmeVerifierAgent = async () => {
             key: "demoagentverifieracme0000000000000000000",
             keyDerivationMethod: core_1.KeyDerivationMethod.Argon2IMod,
         },
-        endpoints: ["http://localhost:3000"],
+        endpoints: ["http://localhost:3002"],
         logger: new core_1.ConsoleLogger(core_1.LogLevel.info),
         didCommMimeType: core_1.DidCommMimeType.V1,
         useDidKeyInProtocols: true,
@@ -30,7 +37,8 @@ const initializeAcmeVerifierAgent = async () => {
                 ariesAskar: aries_askar_nodejs_1.ariesAskar,
             }),
             openId4VcVerifier: new openid4vc_1.OpenId4VcVerifierModule({
-                baseUrl: "http://127.0.0.1:3000/oid4vci/",
+                baseUrl: "http://127.0.0.1:3000/oid4vci/verifier/",
+                router: exports.verifierRouter, // <-- this is required!
             }),
             basicMessages: new core_1.BasicMessagesModule(),
         },
@@ -70,14 +78,14 @@ exports.createAuthorizationRequestAndSession = createAuthorizationRequestAndSess
 function monitorVerificationSession(agent, verificationSessionId) {
     agent.events.on(openid4vc_1.OpenId4VcVerifierEvents.VerificationSessionStateChanged, async (event) => {
         if (event.payload.verificationSession.id === verificationSessionId) {
-            console.log("Verification session state changed to ", event.payload.verificationSession.state);
-        }
-        if (event.payload.verificationSession.state ===
-            openid4vc_1.OpenId4VcVerificationSessionState.ResponseVerified) {
-            const verifiedAuthorizationResponse = await agent.modules.openId4VcVerifier.getVerifiedAuthorizationResponse(verificationSessionId);
-            console.log("Successfully verified presentation.", JSON.stringify(verifiedAuthorizationResponse, null, 2));
-            console.log("Exiting...");
-            process.exit();
+            if (event.payload.verificationSession.state ===
+                openid4vc_1.OpenId4VcVerificationSessionState.ResponseVerified) {
+                const verifiedAuthorizationResponse = await agent.modules.openId4VcVerifier.getVerifiedAuthorizationResponse(verificationSessionId);
+                storeVerificationResult(verificationSessionId, verifiedAuthorizationResponse);
+                console.log("Successfully verified presentation.", JSON.stringify(verifiedAuthorizationResponse, null, 2));
+                console.log("Exiting...");
+                // process.exit();
+            }
         }
     });
 }

@@ -484,19 +484,45 @@
               >
                 Create Verification Request
               </button>
+
+              <div
+                id="authorizationRequestLink"
+                style="margin-top: 1em; display: none; flex-direction: column"
+              >
+                <h4
+                  for="authRequestUrl"
+                  style="margin-bottom: 0.5em; display: block"
+                >
+                  Authorization Request Link:
+                </h4>
+                <div style="display: flex; gap: 0.5em; align-items: center">
+                  <input
+                    type="text"
+                    id="authRequestUrl"
+                    readonly
+                    style="flex: 1 1 0%; min-width: 0; width: 100%"
+                  />
+                  <button
+                    id="copyAuthRequestUrl"
+                    class="btn icon-btn"
+                    type="button"
+                  >
+                    <i class="fas fa-copy"></i>
+                  </button>
+                </div>
+              </div>
             </form>
+
+            <!-- Add this inside your verifierScreen section, after the form and link -->
             <div
-              id="authorizationRequestLink"
-              style="margin-top: 1em; display: none"
+              id="verifierResult"
+              style="display: none; text-align: center; margin-top: 2em"
             >
-              <label>Authorization Request Link:</label>
-              <input
-                type="text"
-                id="authRequestUrl"
-                readonly
-                style="width: 100%"
-              />
-              <button id="copyAuthRequestUrl">Copy</button>
+              <div class="success-animation">
+                <i class="fas fa-check-circle"></i>
+              </div>
+              <h3>Verification Complete!</h3>
+              <div id="verifierResultDetails"></div>
             </div>
           </section>
         </div>

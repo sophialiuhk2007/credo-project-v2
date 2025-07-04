@@ -46,7 +46,7 @@ const initializeAcmeAgentIssuer = async () => {
     modules: {
       askar: new AskarModule({ ariesAskar }),
       openId4VcIssuer: new OpenId4VcIssuerModule({
-        baseUrl: "http://127.0.0.1:3000/oid4vci/issuer/",
+        baseUrl: "http://127.0.0.1:3000/oid4vci",
         router: issuerRouter,
         endpoints: {
           credential: {

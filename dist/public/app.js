@@ -1113,59 +1113,82 @@ function renderFilterOptionInput(option, value) {
       : value || ""
   }">`;
 }
+const verifierForm = document.getElementById("verifierForm");
+const createVerificationRequestBtn = document.getElementById(
+  "createVerificationRequestBtn"
+);
+const authorizationRequestLink = document.getElementById(
+  "authorizationRequestLink"
+);
+
+let verificationRequestCreated = false;
+
 // --- On form submit, use the arrays instead of parsing text ---
-document
-  .getElementById("verifierForm")
-  .addEventListener("submit", async function (e) {
-    e.preventDefault();
+verifierForm.addEventListener("submit", async function (e) {
+  e.preventDefault();
+  if (verificationRequestCreated) {
+    // Reset form and UI for a new request
+    verifierForm.reset();
+    authorizationRequestLink.style.display = "none";
+    createVerificationRequestBtn.textContent = "Create Verification Request";
+    verificationRequestCreated = false;
+    requiredFields.length = 0;
+    renderRequiredFields();
+    return;
+  }
+  const name = document.getElementById("verificationName").value.trim();
+  const purpose = document.getElementById("verificationPurpose").value.trim();
 
-    const name = document.getElementById("verificationName").value.trim();
-    const purpose = document.getElementById("verificationPurpose").value.trim();
+  // Use the arrays directly
+  const fields = requiredFields.map((field) => ({
+    path: [field.path || field],
+    ...(field.filter ? { filter: field.filter } : {}),
+  }));
+  const idSource = name + purpose + JSON.stringify(fields);
 
-    // Use the arrays directly
-    const fields = requiredFields.map((field) => ({
-      path: [field.path || field],
-      ...(field.filter ? { filter: field.filter } : {}),
-    }));
-    const idSource = name + purpose + JSON.stringify(fields);
+  // Generate robust SHA-256 hashes for IDs
+  const definitionId = await sha256Hex(idSource);
+  const inputDescriptorId = await sha256Hex(idSource + "input");
 
-    // Generate robust SHA-256 hashes for IDs
-    const definitionId = await sha256Hex(idSource);
-    const inputDescriptorId = await sha256Hex(idSource + "input");
-
-    const presentationExchange = {
-      definition: {
-        id: definitionId,
-        name,
-        purpose,
-        input_descriptors: [
-          {
-            id: inputDescriptorId,
-            constraints: {
-              limit_disclosure: "required",
-              fields,
-            },
+  const presentationExchange = {
+    definition: {
+      id: definitionId,
+      name,
+      purpose,
+      input_descriptors: [
+        {
+          id: inputDescriptorId,
+          constraints: {
+            limit_disclosure: "required",
+            fields,
           },
-        ],
-      },
-    };
+        },
+      ],
+    },
+  };
 
-    // Call your backend to create the authorization request
-    const res = await fetch("/create-verification-request", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ presentationExchange }),
-    });
-    const data = await res.json();
-
-    // Show the authorization request link
-    document.getElementById("authorizationRequestLink").style.display = "block";
-    document.getElementById("authRequestUrl").value =
-      data.authorizationRequestUrl || data.invitationUrl || "";
-    if (data.verificationSessionId) {
-      monitorVerificationSession(data.verificationSessionId);
-    }
+  // Call your backend to create the authorization request
+  const res = await fetch("/create-verification-request", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ presentationExchange }),
   });
+  const data = await res.json();
+
+  authorizationRequestLink.style.display = "block"; // or "flex" if you want
+  createVerificationRequestBtn.textContent =
+    "Create Another Verification Request";
+  verificationRequestCreated = true;
+  // Show the authorization request link
+  document.getElementById("authorizationRequestLink").style.display = "flex";
+  document.getElementById("authRequestUrl").value =
+    data.authorizationRequestUrl || data.invitationUrl || "";
+  const verificationSessionId = data.verificationSessionId; // <-- define it here
+
+  if (data.verificationSessionId) {
+    monitorVerificationSession(data.verificationSessionId);
+  }
+});
 const originalNavigateTo = UI.navigateTo.bind(UI);
 UI.navigateTo = function (page) {
   // If leaving pkpassDesigner, reset its fields
@@ -1185,6 +1208,15 @@ const requiredFieldsDropdown = document.getElementById(
 );
 const constFieldDropdown = document.getElementById("constFieldDropdown");
 
+async function logVerificationResult(sessionId) {
+  const res = await fetch(`/api/verification-result/${sessionId}`);
+  if (res.ok) {
+    const data = await res.json();
+    console.log("verifiedAuthorizationResponse:", data);
+  } else {
+    console.log("No verification result found for session:", sessionId);
+  }
+}
 async function loadTemplatesForVerifier() {
   const res = await fetch("/api/templates");
   templates = await res.json();
@@ -1306,6 +1338,7 @@ function updateFieldDropdowns(templateId) {
     requiredFieldsDropdown.appendChild(templateGroup);
   }
 }
+
 document
   .getElementById("filterType")
   .addEventListener("change", updateFilterOptionSelect);
@@ -1382,11 +1415,13 @@ function monitorVerificationSession(verificationSessionId) {
       const data = await res.json();
 
       // You may want to update the UI here with the current state
-      console.log("Verification session state:", data.state);
+      // console.log("Verification session state:", data.state);
 
       if (data.state === "ResponseVerified") {
         alert("Credential successfully verified!");
         // Optionally, display more info or update the UI
+        logVerificationResult(verificationSessionId);
+
         return;
       }
 

@@ -21,8 +21,12 @@ import {
   verifierAgent,
 } from "./verifier_main";
 import { OpenId4VcVerifierApi } from "@credo-ts/openid4vc";
+import { verifierRouter, monitorVerificationSession } from "./verifier_main";
+import { setStoreVerificationResult } from "./verifier_main";
 
 dotenv.config();
+
+const verificationResults: Record<string, any> = {};
 
 const PKPASS = require("passkit-generator").PKPass;
 // Create Express app
@@ -34,8 +38,7 @@ app.use(express.json({ limit: "5mb" })); // <-- Increase as needed
 app.use(express.urlencoded({ limit: "5mb", extended: true })); // For form data
 
 app.use(express.static(path.join(__dirname, "../public")));
-
-app.use("/oid4vci", issuerRouter); // <-- add this before your routes
+app.use("/oid4vci/issuer", issuerRouter); // <-- add this before your routes
 // Routes
 app.get("/", (req: Request, res: Response): Promise<any> => {
   return Promise.resolve(
@@ -184,7 +187,19 @@ app.put(
     return Promise.resolve(res.json(template));
   }
 );
-
+setStoreVerificationResult((sessionId: string, result: any) => {
+  verificationResults[sessionId] = result;
+});
+app.get("/api/verification-result/:sessionId", (req, res) => {
+  const sessionId = req.params.sessionId;
+  console.log("API request for verification result:", sessionId);
+  const result = verificationResults[sessionId];
+  if (result) {
+    res.json(result);
+  } else {
+    res.status(404).json({ error: "Result not found" });
+  }
+});
 app.post(
   "/create-verification-request",
   async (req: Request, res: Response): Promise<any> => {
@@ -206,6 +221,8 @@ app.post(
           openId4VcVerifier,
           presentationExchange
         );
+      monitorVerificationSession(verifierAgent, verificationSession.id);
+
       res.json({
         authorizationRequestUrl: authorizationRequest,
         verificationSessionId: verificationSession.id,
@@ -226,7 +243,8 @@ const startServer = async () => {
     await initializeIssuer();
     await initializeAcmeVerifierAgent();
     openId4VcVerifier =
-      await verifierAgent!.modules.openId4VcVerifier.createVerifier({}); // Try to use the specified port or find an available one
+      await verifierAgent!.modules.openId4VcVerifier.createVerifier({});
+    app.use("/oid4vci/verifier", verifierRouter); // Verifier endpoints
     const preferredPort = parseInt(process.env.PORT || "3000", 10);
     const port = await findAvailablePort(preferredPort);
 
