@@ -1159,7 +1159,7 @@ verifierForm.addEventListener("submit", async function (e) {
         {
           id: inputDescriptorId,
           constraints: {
-            limit_disclosure: "required",
+            limit_disclosure: "preferred",
             fields,
           },
         },

@@ -120,7 +120,7 @@ const createAuthorizationRequestAndSession = async (
                 id: "23456",
                 constraints: {
                   // Require limit disclosure
-                  limit_disclosure: "required",
+                  limit_disclosure: "preferred",
                   fields: [
                     {
                       filter: {

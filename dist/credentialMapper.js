@@ -74,6 +74,10 @@ const credentialRequestToCredentialMapper = async ({ agentContext, credentialOff
             console.error("Failed to generate pkpass, skipping pkpass field:", e);
         }
     }
+    if (Object.prototype.hasOwnProperty.call(payloadFields, "pkpass") &&
+        !selectivelyDisclosableFields.includes("pkpass")) {
+        selectivelyDisclosableFields.push("pkpass");
+    }
     return {
         credentialSupportedId: firstSupported.id,
         format: "vc+sd-jwt",

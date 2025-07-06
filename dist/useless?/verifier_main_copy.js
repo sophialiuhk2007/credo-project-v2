@@ -128,7 +128,7 @@ const createAuthorizationRequestAndSession = async (acmeVerifierAgent, openId4Vc
                         id: "9c98fb43-6fd5-49b1-8dcc-69bd2a378f23",
                         constraints: {
                             // Require limit disclosure
-                            limit_disclosure: "required",
+                            limit_disclosure: "preferred",
                             fields: [
                                 {
                                     filter: {
