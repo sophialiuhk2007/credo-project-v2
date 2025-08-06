@@ -1,22 +1,27 @@
 import fs from "fs";
 import path from "path";
 const PKPASS = require("passkit-generator").PKPass;
-
+function ensureFileFromEnv(envVar: string, filePath: string) {
+  if (process.env[envVar] && !fs.existsSync(filePath)) {
+    fs.writeFileSync(filePath, process.env[envVar] as string);
+  }
+}
 export async function generatePkpassFromTemplate(
   template: any,
   data: any
 ): Promise<Buffer> {
+  const signerCertPath = "/tmp/signerCert.pem";
+  const signerKeyPath = "/tmp/signerKey.pem";
+  ensureFileFromEnv("SIGNER_CERT", signerCertPath);
+  ensureFileFromEnv("SIGNER_KEY", signerKeyPath);
+
   const newPass = await PKPASS.from(
     {
       model: path.join(__dirname, "../../model/custom.pass"),
       certificates: {
         wwdr: fs.readFileSync(path.join(__dirname, "../../certs/wwdr2.pem")),
-        signerCert: fs.readFileSync(
-          path.join(__dirname, "../../certs/signerCert.pem")
-        ),
-        signerKey: fs.readFileSync(
-          path.join(__dirname, "../../certs/signerKey.pem")
-        ),
+        signerCert: fs.readFileSync(signerCertPath),
+        signerKey: fs.readFileSync(signerKeyPath),
         signerKeyPassphrase: process.env.PASSKIT_SIGNER_KEY_PASSPHRASE,
       },
     },
