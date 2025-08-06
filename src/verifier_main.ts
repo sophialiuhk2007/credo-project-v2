@@ -28,6 +28,7 @@ import {
   OpenId4VcVerificationSessionStateChangedEvent,
   OpenId4VcVerificationSessionState,
 } from "@credo-ts/openid4vc";
+require("dotenv").config();
 
 export const verifierRouter = Router();
 let storeVerificationResult: (
@@ -46,7 +47,13 @@ export const initializeAcmeVerifierAgent = async () => {
     label: "verifier-agent",
     walletConfig: {
       id: "mainAcmeVerifierWallet",
-      key: "demoagentverifieracme0000000000000000000",
+      key:
+        process.env.VERIFIER_WALLET_KEY ??
+        (() => {
+          throw new Error(
+            "VERIFIER_WALLET_KEY environment variable is not set"
+          );
+        })(),
       keyDerivationMethod: KeyDerivationMethod.Argon2IMod,
     },
     endpoints: ["http://localhost:3002"],

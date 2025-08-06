@@ -9,6 +9,7 @@ const askar_1 = require("@credo-ts/askar");
 const aries_askar_nodejs_1 = require("@hyperledger/aries-askar-nodejs");
 const express_1 = require("express");
 const openid4vc_1 = require("@credo-ts/openid4vc");
+require("dotenv").config();
 exports.verifierRouter = (0, express_1.Router)();
 let storeVerificationResult = () => { };
 function setStoreVerificationResult(fn) {
@@ -19,7 +20,10 @@ const initializeAcmeVerifierAgent = async () => {
         label: "verifier-agent",
         walletConfig: {
             id: "mainAcmeVerifierWallet",
-            key: "demoagentverifieracme0000000000000000000",
+            key: process.env.VERIFIER_WALLET_KEY ??
+                (() => {
+                    throw new Error("VERIFIER_WALLET_KEY environment variable is not set");
+                })(),
             keyDerivationMethod: core_1.KeyDerivationMethod.Argon2IMod,
         },
         endpoints: ["http://localhost:3002"],

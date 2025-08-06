@@ -6,12 +6,16 @@ const node_1 = require("@credo-ts/node");
 const askar_1 = require("@credo-ts/askar");
 const aries_askar_nodejs_1 = require("@hyperledger/aries-askar-nodejs");
 const openid4vc_1 = require("@credo-ts/openid4vc");
+require("dotenv").config();
 const initializeBobAgent = async () => {
     const config = {
         label: "demo-agent-bob-holder",
         walletConfig: {
             id: "mainBobHolderWallet",
-            key: "demoagentbob00000000000000000000",
+            key: process.env.HOLDER_WALLET_KEY ??
+                (() => {
+                    throw new Error("HOLDEr_WALLET_KEY environment variable is not set");
+                })(),
             keyDerivationMethod: core_1.KeyDerivationMethod.Argon2IMod,
         },
         endpoints: ["http://localhost:3001"],

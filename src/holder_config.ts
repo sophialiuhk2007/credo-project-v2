@@ -13,13 +13,18 @@ import { agentDependencies, HttpInboundTransport } from "@credo-ts/node";
 import { AskarModule } from "@credo-ts/askar";
 import { ariesAskar } from "@hyperledger/aries-askar-nodejs";
 import { OpenId4VcHolderModule } from "@credo-ts/openid4vc";
+require("dotenv").config();
 
 export const initializeBobAgent = async () => {
   const config: InitConfig = {
     label: "demo-agent-bob-holder",
     walletConfig: {
       id: "mainBobHolderWallet",
-      key: "demoagentbob00000000000000000000",
+      key:
+        process.env.HOLDER_WALLET_KEY ??
+        (() => {
+          throw new Error("HOLDEr_WALLET_KEY environment variable is not set");
+        })(),
       keyDerivationMethod: KeyDerivationMethod.Argon2IMod,
     },
     endpoints: ["http://localhost:3001"],

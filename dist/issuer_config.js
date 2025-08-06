@@ -14,6 +14,7 @@ const credentialMapper_1 = __importDefault(require("./credentialMapper"));
 const port_utils_1 = require("./utils/port-utils");
 const issuerRouter = (0, express_1.Router)();
 exports.issuerRouter = issuerRouter;
+require("dotenv").config();
 const initializeAcmeAgentIssuer = async () => {
     // Find an available port for the agent's HTTP inbound transport
     // Start from 5000 to avoid conflicts with the web server (which uses 3000+)
@@ -23,7 +24,10 @@ const initializeAcmeAgentIssuer = async () => {
         label: "demo-agent-acme",
         walletConfig: {
             id: "mainAcmeIssuerWallet",
-            key: "demoagentissueracme0000000000000000000 s",
+            key: process.env.ISSUER_WALLET_KEY ??
+                (() => {
+                    throw new Error("ISSUER_WALLET_KEY is not set in environment variables");
+                })(),
             keyDerivationMethod: core_1.KeyDerivationMethod.Argon2IMod,
         },
         endpoints: [`http://localhost:${agentPort}`],
