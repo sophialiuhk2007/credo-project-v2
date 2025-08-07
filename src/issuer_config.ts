@@ -37,7 +37,7 @@ const initializeAcmeAgentIssuer = async () => {
         })(),
       keyDerivationMethod: KeyDerivationMethod.Argon2IMod,
     },
-    endpoints: [`http://localhost:${agentPort}`],
+    endpoints: [`http://0.0.0.0:${agentPort}`],
     logger: new ConsoleLogger(LogLevel.info),
     didCommMimeType: DidCommMimeType.V1,
     useDidKeyInProtocols: true,
@@ -52,7 +52,7 @@ const initializeAcmeAgentIssuer = async () => {
     modules: {
       askar: new AskarModule({ ariesAskar }),
       openId4VcIssuer: new OpenId4VcIssuerModule({
-        baseUrl: "http://127.0.0.1:3000/oid4vci/issuer/",
+        baseUrl: "https://trustinc.fly.dev/oid4vci/issuer/",
         router: issuerRouter,
         endpoints: {
           credential: {

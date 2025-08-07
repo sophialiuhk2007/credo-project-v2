@@ -1,6 +1,5 @@
 # flyctl launch added from .gitignore
 # Ignore certificate files
-**/certs
 # Ignore environment variables
 **/.env
 # Ignore build output
@@ -10,3 +9,5 @@
 # OS files
 **/.DS_Store
 fly.toml
+certs/signerKey.pem
+certs/signerCert.pem
