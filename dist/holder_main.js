@@ -86,21 +86,12 @@ const run = async () => {
     console.log("Initializing Bob agent...");
     const bobAgent = await (0, holder_config_1.initializeBobAgent)();
     // connection only available for verification request not credential issuance
-    // const credentialOfferUrl = await question("Enter the credential offer URL: ");
-    // const resolvedCredentialOffer = await resolveCredentialOffer(
-    //   bobAgent,
-    //   credentialOfferUrl
-    // );
-    // console.log(
-    //   "Resolved credential offer",
-    //   JSON.stringify(resolvedCredentialOffer.credentialOfferPayload, null, 2)
-    // );
-    // const credentials = await acceptCredentialOffer(
-    //   bobAgent,
-    //   resolvedCredentialOffer
-    // );
-    // console.log("Received credentials", JSON.stringify(credentials, null, 2));
-    // const records = await storeCredentials(bobAgent, credentials);
+    const credentialOfferUrl = await question("Enter the credential offer URL: ");
+    const resolvedCredentialOffer = await resolveCredentialOffer(bobAgent, credentialOfferUrl);
+    console.log("Resolved credential offer", JSON.stringify(resolvedCredentialOffer.credentialOfferPayload, null, 2));
+    const credentials = await acceptCredentialOffer(bobAgent, resolvedCredentialOffer);
+    console.log("Received credentials", JSON.stringify(credentials, null, 2));
+    const records = await storeCredentials(bobAgent, credentials);
     const authorizationRequest = await question("Enter the authorization request URL: ");
     rl.close();
     // resolved credential offer contains the offer, metadata, etc..

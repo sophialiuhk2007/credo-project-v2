@@ -1,9 +1,9 @@
-# fly.toml app configuration file generated for credo-project-v2 on 2025-08-06T18:08:12-04:00
+# fly.toml app configuration file generated for veritrust-quiet-grass-8878 on 2025-08-29T11:20:17-04:00
 #
 # See https://fly.io/docs/reference/configuration/ for information about how to use this file.
 #
 
-app = 'trustinc'
+app = 'veritrust-quiet-grass-8878'
 primary_region = 'iad'
 
 [build]

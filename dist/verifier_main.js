@@ -26,7 +26,7 @@ const initializeAcmeVerifierAgent = async () => {
                 })(),
             keyDerivationMethod: core_1.KeyDerivationMethod.Argon2IMod,
         },
-        endpoints: ["http://localhost:3002"],
+        endpoints: ["http://0.0.0.0:3002"],
         logger: new core_1.ConsoleLogger(core_1.LogLevel.info),
         didCommMimeType: core_1.DidCommMimeType.V1,
         useDidKeyInProtocols: true,
@@ -41,7 +41,7 @@ const initializeAcmeVerifierAgent = async () => {
                 ariesAskar: aries_askar_nodejs_1.ariesAskar,
             }),
             openId4VcVerifier: new openid4vc_1.OpenId4VcVerifierModule({
-                baseUrl: "http://127.0.0.1:3000/oid4vci/verifier/",
+                baseUrl: "https://trustinc.fly.dev/oid4vci/verifier/",
                 router: exports.verifierRouter, // <-- this is required!
             }),
             basicMessages: new core_1.BasicMessagesModule(),
