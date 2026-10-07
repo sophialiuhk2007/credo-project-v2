@@ -1,8 +1,16 @@
-# Ignore environment variables
+# Signing keys/certs — never commit. wwdr2.pem is Apple's public intermediate cert.
+certs/*
+!certs/wwdr2.pem
+*.p12
+*.key
+# Environment variables
 .env
-# Ignore build output
+# Build output
+build/
 dist/
 # Node modules
 node_modules/
+# Local data
+data/*.sqlite
 # OS files
 .DS_Store
